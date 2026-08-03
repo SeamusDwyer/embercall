@@ -31,6 +31,8 @@ func _ready() -> void:
 	set_process(true)
 
 func _process(delta: float) -> void:
+	if not multiplayer.multiplayer_peer:
+		return
 	if not multiplayer.has_multiplayer_peer() or multiplayer.is_server():
 		_server_process(delta)
 

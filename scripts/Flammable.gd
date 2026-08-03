@@ -15,6 +15,14 @@ func _ready() -> void:
 	ignite.extinguished.connect(_on_extinguished)
 	hazard_area.body_entered.connect(_on_hazard_body_entered)
 	fire_vfx.emitting = false
+	set_process(true)
+
+
+func _process(_delta: float) -> void:
+	if ignite.is_burning and not fire_vfx.emitting:
+		_on_ignited()
+	elif not ignite.is_burning and fire_vfx.emitting:
+		_on_extinguished()
 
 func _on_ignited() -> void:
 	fire_vfx.emitting = true

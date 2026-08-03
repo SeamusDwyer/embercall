@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/Flammable.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/IgniteStatus.gd" id="2"]
@@ -28,6 +28,14 @@ color = Color(1, 0.5, 0.1, 1)
 [sub_resource type="QuadMesh" id="QuadMesh_fire"]
 size = Vector2(0.3, 0.3)
 
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_prop"]
+properties/0/path = NodePath("IgniteStatus:stacks")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath("IgniteStatus:is_burning")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+
 [node name="FlammableProp" type="StaticBody3D" groups=["flammable"]]
 script = ExtResource("1")
 
@@ -53,3 +61,6 @@ amount = 24
 lifetime = 0.8
 process_material = SubResource("ParticleProcessMaterial_fire")
 draw_pass_1 = SubResource("QuadMesh_fire")
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("SceneReplicationConfig_prop")

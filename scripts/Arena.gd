@@ -51,6 +51,12 @@ func is_exit_unlocked() -> bool:
 	return exit_zone.monitoring
 
 
+@rpc("authority", "reliable")
+func _sync_arena_state() -> void:
+	if _enemy_dead:
+		_unlock_exit()
+
+
 @rpc("authority", "call_local", "reliable")
 func _run_complete() -> void:
 	print("Run complete! (MVP end state - wire up a restart/next-room screen here)")

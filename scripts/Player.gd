@@ -21,7 +21,8 @@ var health: float = 100.0
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var attack_area: Area3D = $CameraPivot/AttackArea
 @onready var attack_shape: CollisionShape3D = $CameraPivot/AttackArea/CollisionShape3D
-@onready var weapon_mesh: MeshInstance3D = $CameraPivot/WeaponMesh
+@onready var weapon_mesh: MeshInstance3D = $CameraPivot/WeaponPivot/WeaponMesh
+@onready var weapon_pivot: Node3D = $CameraPivot/WeaponPivot
 @onready var hud: CanvasLayer = null
 
 var autopilot: bool = false
@@ -31,6 +32,20 @@ var scripted_attack_requested: bool = false
 var _attack_cooldown_left: float = 0.0
 var _footstep_dist_accum: float = 0.0
 var _mouse_captured: bool = false
+var _swing_index: int = 0
+var _interp_from: Vector3 = Vector3.ZERO
+var _interp_to: Vector3 = Vector3.ZERO
+var _interp_progress: float = 0.0
+var _has_received_sync: bool = false
+
+const INTERP_SPEED: float = 20.0
+const SNAP_DISTANCE: float = 2.0
+
+const SWING_PATTERNS: Array[Dictionary] = [
+	{"yaw": 55.0, "pitch": 25.0},
+	{"yaw": -55.0, "pitch": 25.0},
+	{"yaw": 0.0, "pitch": 60.0},
+]
 
 func _ready() -> void:
 	health = max_health
@@ -49,11 +64,32 @@ func _ready() -> void:
 		hud.bind_player.call_deferred(self)
 	else:
 		camera.current = false
+		var sync := get_node_or_null("MultiplayerSynchronizer")
+		if sync:
+			sync.synchronized.connect(_on_sync_received)
 
 
 func _set_mouse_captured() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_mouse_captured = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+
+
+func _on_sync_received() -> void:
+	if not _has_received_sync:
+		_interp_from = global_position
+		_interp_to = global_position
+		_has_received_sync = true
+		return
+	var target: Vector3 = global_position
+	var error: float = target.distance_to(_interp_to)
+	if error > SNAP_DISTANCE:
+		_interp_from = target
+		_interp_to = target
+		_interp_progress = 1.0
+	else:
+		_interp_from = _interp_from.lerp(_interp_to, _interp_progress)
+		_interp_to = target
+		_interp_progress = 0.0
 
 
 func _notification(what: int) -> void:
@@ -81,6 +117,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
+		if _interp_progress < 1.0 and _has_received_sync:
+			_interp_progress = min(_interp_progress + delta * INTERP_SPEED, 1.0)
+			global_position = _interp_from.lerp(_interp_to, _interp_progress)
+		move_and_slide()
 		return
 
 	if not is_on_floor():
@@ -126,6 +166,7 @@ func _physics_process(delta: float) -> void:
 
 	if attack_triggered and _attack_cooldown_left <= 0.0:
 		_attack_cooldown_left = ATTACK_COOLDOWN
+		_swing_index = (_swing_index + 1) % SWING_PATTERNS.size()
 		_do_attack()
 
 
@@ -134,22 +175,19 @@ func _do_attack() -> void:
 
 
 func _animate_weapon_swing() -> void:
-	if not weapon_mesh:
+	if not weapon_pivot:
 		return
 	var progress: float = 1.0 - (_attack_cooldown_left / ATTACK_COOLDOWN)
 	var phase: float = sin(progress * PI)
-	# Side-to-side slash arc (Y rotation: right to left and back)
-	weapon_mesh.rotation_degrees.y = phase * 55.0
-	# Forward tilt during the swing
-	weapon_mesh.rotation_degrees.x = -abs(phase) * 35.0
-	# Slight forward thrust
-	weapon_mesh.position.z = -0.9 - abs(phase) * 0.4
+	var pattern: Dictionary = SWING_PATTERNS[_swing_index]
+	var yaw: float = phase * pattern["yaw"]
+	var pitch: float = abs(phase) * pattern["pitch"]
+	weapon_pivot.rotation_degrees = Vector3(-pitch, yaw, 0.0)
 
 
 func _reset_weapon() -> void:
-	if weapon_mesh:
-		weapon_mesh.rotation_degrees = Vector3.ZERO
-		weapon_mesh.position.z = -0.9
+	if weapon_pivot:
+		weapon_pivot.rotation_degrees = Vector3.ZERO
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -176,7 +214,7 @@ func _request_attack() -> void:
 		_spawn_hit_impact.rpc(body.global_position)
 
 
-@rpc("authority", "call_local", "reliable")
+@rpc("any_peer", "call_local", "reliable")
 func _spawn_hit_impact(pos: Vector3) -> void:
 	if not DebugShapes.show_hit_impacts:
 		return
@@ -214,14 +252,14 @@ func take_damage(amount: float) -> void:
 		_on_death.rpc()
 
 
-@rpc("authority", "call_local", "reliable")
+@rpc("any_peer", "call_local", "reliable")
 func _sync_health(new_health: float) -> void:
 	health = new_health
 	if hud:
 		hud.update_health(health, max_health)
 
 
-@rpc("authority", "call_local", "reliable")
+@rpc("any_peer", "call_local", "reliable")
 func _on_death() -> void:
 	# MVP: just freeze the player and let others keep going. Respawn/retry
 	# logic is an easy next step once the loop feels right.

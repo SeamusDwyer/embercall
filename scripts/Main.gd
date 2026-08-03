@@ -20,6 +20,12 @@ func _ready() -> void:
 	if _has_arg(args, "--autojoin"):
 		_start_autojoin(args)
 		return
+	if _has_arg(args, "--steam-host"):
+		_start_steam_host()
+		return
+	if _has_arg(args, "--steam-join"):
+		_start_steam_join(args)
+		return
 
 	host_btn.pressed.connect(_on_host_pressed)
 	join_btn.pressed.connect(_on_join_pressed)
@@ -32,6 +38,30 @@ func _has_arg(args: Array, prefix: String) -> bool:
 		if s == prefix or s.begins_with(prefix + "="):
 			return true
 	return false
+
+
+func _get_arg_value(args: Array, prefix: String) -> String:
+	for arg in args:
+		var s: String = str(arg)
+		if s.begins_with(prefix + "="):
+			return s.trim_prefix(prefix + "=")
+		elif s == prefix:
+			var idx: int = args.find(s)
+			if idx >= 0 and idx + 1 < args.size():
+				return str(args[idx + 1])
+	return ""
+
+
+func _start_steam_host() -> void:
+	menu.visible = false
+	Net.host_game(Net.Transport.STEAM)
+	status_label.text = "Hosting via Steam..."
+
+func _start_steam_join(args: Array) -> void:
+	menu.visible = false
+	var lobby_id: String = _get_arg_value(args, "--steam-join")
+	Net.join_game(lobby_id, Net.Transport.STEAM)
+	status_label.text = "Joining Steam lobby %s..." % lobby_id
 
 
 func _start_autopilot() -> void:
@@ -78,8 +108,14 @@ func _start_autojoin(args: Array) -> void:
 	Net.join_game(addr)
 	multiplayer.server_disconnected.connect(_on_autojoin_server_disconnected)
 	multiplayer.connection_failed.connect(_on_autojoin_connection_failed)
+	multiplayer.connected_to_server.connect(_on_autojoin_connected)
 	# Timeout: if no connection within 20s, fail
-	get_tree().create_timer(20.0).timeout.connect(_on_autojoin_timeout)
+	var timeout_timer := get_tree().create_timer(20.0)
+	timeout_timer.timeout.connect(_on_autojoin_timeout.bind(timeout_timer))
+
+
+func _on_autojoin_connected() -> void:
+	pass
 
 
 func _on_autojoin_server_disconnected() -> void:
@@ -92,7 +128,9 @@ func _on_autojoin_connection_failed() -> void:
 	get_tree().quit(1)
 
 
-func _on_autojoin_timeout() -> void:
+func _on_autojoin_timeout(timer: SceneTreeTimer) -> void:
+	if multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		return  # already connected, ignore stale timeout
 	print("TEST_RESULT: FAIL: autojoin timeout waiting for host")
 	get_tree().quit(1)
 
