@@ -137,9 +137,13 @@ func _animate_weapon_swing() -> void:
 	if not weapon_mesh:
 		return
 	var progress: float = 1.0 - (_attack_cooldown_left / ATTACK_COOLDOWN)
-	var angle: float = sin(progress * PI) * deg_to_rad(-80.0)
-	weapon_mesh.rotation_degrees = Vector3(angle, 0.0, 0.0)
-	weapon_mesh.position.z = -0.9 - sin(progress * PI) * 0.6
+	var phase: float = sin(progress * PI)
+	# Side-to-side slash arc (Y rotation: right to left and back)
+	weapon_mesh.rotation_degrees.y = phase * 55.0
+	# Forward tilt during the swing
+	weapon_mesh.rotation_degrees.x = -abs(phase) * 35.0
+	# Slight forward thrust
+	weapon_mesh.position.z = -0.9 - abs(phase) * 0.4
 
 
 func _reset_weapon() -> void:
@@ -169,6 +173,30 @@ func _request_attack() -> void:
 		var ignite_status = body.get_node_or_null("IgniteStatus")
 		if ignite_status and ignite_status is IgniteStatus:
 			ignite_status.apply_stacks(ATTACK_IGNITE_STACKS)
+		_spawn_hit_impact.rpc(body.global_position)
+
+
+@rpc("authority", "call_local", "reliable")
+func _spawn_hit_impact(pos: Vector3) -> void:
+	if not DebugShapes.show_hit_impacts:
+		return
+	var marker := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.15
+	sphere.height = 0.3
+	marker.mesh = sphere
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(1.0, 0.8, 0.1, 0.8)
+	marker.set_surface_override_material(0, mat)
+	marker.global_position = pos
+	marker.name = "HitImpact"
+	get_tree().get_root().add_child.call_deferred(marker)
+	var tween := create_tween()
+	tween.tween_property(mat, "albedo_color:a", 0.0, 0.4)
+	tween.parallel().tween_property(marker, "scale", Vector3(0.2, 0.2, 0.2), 0.4)
+	tween.tween_callback(marker.queue_free)
 
 
 @rpc("any_peer", "call_local", "reliable")

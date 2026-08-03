@@ -15,6 +15,8 @@ const RADAR_RADIUS := 90.0
 @onready var settings_panel: Panel = $Root/SettingsPanel
 @onready var res_option: OptionButton = $Root/SettingsPanel/SettingsVBox/ResHBox/ResOption
 @onready var vsync_check: CheckButton = $Root/SettingsPanel/SettingsVBox/VsyncHBox/VsyncCheck
+@onready var hitbox_check: CheckButton = $Root/SettingsPanel/SettingsVBox/HitboxHBox/HitboxCheck
+@onready var impact_check: CheckButton = $Root/SettingsPanel/SettingsVBox/ImpactHBox/ImpactCheck
 @onready var resume_btn: Button = $Root/SettingsPanel/SettingsVBox/ResumeButton
 @onready var quit_btn: Button = $Root/SettingsPanel/SettingsVBox/QuitButton
 
@@ -36,6 +38,8 @@ func _ready() -> void:
 	_populate_resolutions()
 	vsync_check.button_pressed = DisplayServer.window_get_vsync_mode() != DisplayServer.VSYNC_DISABLED
 	vsync_check.toggled.connect(_on_vsync_toggled)
+	hitbox_check.toggled.connect(_on_hitbox_toggled)
+	impact_check.toggled.connect(_on_impact_toggled)
 	resume_btn.pressed.connect(_on_resume_pressed)
 	quit_btn.pressed.connect(_on_quit_pressed)
 	set_process(true)
@@ -83,6 +87,14 @@ func _on_vsync_toggled(enabled: bool) -> void:
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
 	else:
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+
+
+func _on_hitbox_toggled(enabled: bool) -> void:
+	DebugShapes.set_visible(enabled)
+
+
+func _on_impact_toggled(enabled: bool) -> void:
+	DebugShapes.set_impacts_visible(enabled)
 
 func bind_player(player: Node3D) -> void:
 	_player = player

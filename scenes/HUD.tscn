@@ -119,6 +119,26 @@ text = "Vsync"
 layout_mode = 2
 button_pressed = true
 
+[node name="HitboxHBox" type="HBoxContainer" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+
+[node name="HitboxLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox/HitboxHBox"]
+layout_mode = 2
+text = "Show Hitboxes"
+
+[node name="HitboxCheck" type="CheckButton" parent="Root/SettingsPanel/SettingsVBox/HitboxHBox"]
+layout_mode = 2
+
+[node name="ImpactHBox" type="HBoxContainer" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+
+[node name="ImpactLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox/ImpactHBox"]
+layout_mode = 2
+text = "Show Hit Impacts"
+
+[node name="ImpactCheck" type="CheckButton" parent="Root/SettingsPanel/SettingsVBox/ImpactHBox"]
+layout_mode = 2
+
 [node name="Spacer" type="Control" parent="Root/SettingsPanel/SettingsVBox"]
 layout_mode = 2
 size_flags_vertical = 3

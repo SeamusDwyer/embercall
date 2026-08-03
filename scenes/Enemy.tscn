@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/Enemy.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/IgniteStatus.gd" id="2"]
@@ -13,6 +13,13 @@ height = 2.0
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_enemy"]
 albedo_color = Color(0.55, 0.1, 0.15, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_weapon"]
+size = Vector3(0.1, 0.1, 0.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_weapon"]
+albedo_color = Color(0.6, 0.15, 0.15, 1)
+metallic = 0.5
 
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_enemy"]
 properties/0/path = NodePath(".:position")
@@ -31,6 +38,11 @@ shape = SubResource("CapsuleShape3D_enemy")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 mesh = SubResource("CapsuleMesh_enemy")
 surface_material_override/0 = SubResource("StandardMaterial3D_enemy")
+
+[node name="WeaponMesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, -1.1)
+mesh = SubResource("BoxMesh_weapon")
+surface_material_override/0 = SubResource("StandardMaterial3D_weapon")
 
 [node name="IgniteStatus" type="Node" parent="."]
 script = ExtResource("2")

@@ -16,6 +16,7 @@ const GROWL_INTERVAL := 4.0
 
 @onready var ignite: IgniteStatus = $IgniteStatus
 @onready var mesh: MeshInstance3D = $MeshInstance3D
+@onready var weapon_mesh: MeshInstance3D = $WeaponMesh
 
 var _attack_cooldown_left: float = 0.0
 var _growl_timer: float = GROWL_INTERVAL
@@ -71,9 +72,16 @@ func _physics_process(delta: float) -> void:
 			if target.has_method("take_damage"):
 				target.take_damage(ATTACK_DAMAGE)
 			Radar.emit_ping(global_position, "attack", 8.0)
+			_spawn_hit_impact.rpc(target.global_position)
+			if mesh:
+				_flash_attack.rpc()
 
 	if _attack_cooldown_left > 0.0:
 		_attack_cooldown_left -= delta
+		var progress: float = 1.0 - (_attack_cooldown_left / ATTACK_COOLDOWN)
+		_animate_enemy_weapon(progress)
+	else:
+		_reset_enemy_weapon()
 
 
 func _find_nearest_player() -> Node3D:
@@ -136,3 +144,53 @@ func _on_ignited() -> void:
 func _on_extinguished() -> void:
 	if mesh:
 		mesh.set_surface_override_material(0, null)
+
+
+func _animate_enemy_weapon(progress: float) -> void:
+	if not weapon_mesh:
+		return
+	var phase: float = sin(progress * PI)
+	weapon_mesh.position.z = -1.1 - phase * 0.9
+
+
+func _reset_enemy_weapon() -> void:
+	if weapon_mesh:
+		weapon_mesh.position.z = -1.1
+
+
+@rpc("authority", "call_local", "reliable")
+func _flash_attack() -> void:
+	if not mesh:
+		return
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.25, 0.2)
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.1, 0.05)
+	mat.emission_energy_multiplier = 3.0
+	mesh.set_surface_override_material(0, mat)
+	await get_tree().create_timer(0.15).timeout
+	if mesh and mesh.get_surface_override_material(0) == mat:
+		mesh.set_surface_override_material(0, null)
+
+
+@rpc("authority", "call_local", "reliable")
+func _spawn_hit_impact(pos: Vector3) -> void:
+	if not DebugShapes.show_hit_impacts:
+		return
+	var marker := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.15
+	sphere.height = 0.3
+	marker.mesh = sphere
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(1.0, 0.2, 0.1, 0.8)
+	marker.set_surface_override_material(0, mat)
+	marker.global_position = pos
+	marker.name = "HitImpact"
+	get_tree().get_root().add_child.call_deferred(marker)
+	var tween := create_tween()
+	tween.tween_property(mat, "albedo_color:a", 0.0, 0.4)
+	tween.parallel().tween_property(marker, "scale", Vector3(0.2, 0.2, 0.2), 0.4)
+	tween.tween_callback(marker.queue_free)
