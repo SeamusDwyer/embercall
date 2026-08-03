@@ -1,6 +1,7 @@
 # Godot 4
 .godot/
 *.import
+addons/
 
 # Windows junk
 *Zone.Identifier
