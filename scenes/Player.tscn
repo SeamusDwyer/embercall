@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/Player.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/IgniteStatus.gd" id="2"]
@@ -13,6 +13,14 @@ height = 1.8
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_attack"]
 size = Vector3(1.4, 1.2, 1.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_weapon"]
+size = Vector3(0.08, 0.08, 1.0)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_weapon"]
+albedo_color = Color(0.6, 0.6, 0.7, 1)
+metallic = 0.6
+roughness = 0.4
 
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_player"]
 properties/0/path = NodePath(".:position")
@@ -52,6 +60,11 @@ monitorable = false
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CameraPivot/AttackArea"]
 shape = SubResource("BoxShape3D_attack")
+
+[node name="WeaponMesh" type="MeshInstance3D" parent="CameraPivot"]
+transform = Transform3D(1, 0, 0, 0, 0.6, 0.8, 0, -0.8, 0.6, 0.25, -0.3, -0.9)
+mesh = SubResource("BoxMesh_weapon")
+surface_material_override/0 = SubResource("StandardMaterial3D_weapon")
 
 [node name="IgniteStatus" type="Node" parent="."]
 script = ExtResource("2")

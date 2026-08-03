@@ -12,14 +12,77 @@ const RADAR_RADIUS := 90.0
 @onready var radar_display: Control = $Root/RadarDisplay
 @onready var death_label: Label = $Root/DeathLabel
 @onready var ignite_label: Label = $Root/IgniteLabel
+@onready var settings_panel: Panel = $Root/SettingsPanel
+@onready var res_option: OptionButton = $Root/SettingsPanel/SettingsVBox/ResHBox/ResOption
+@onready var vsync_check: CheckButton = $Root/SettingsPanel/SettingsVBox/VsyncHBox/VsyncCheck
+@onready var resume_btn: Button = $Root/SettingsPanel/SettingsVBox/ResumeButton
+@onready var quit_btn: Button = $Root/SettingsPanel/SettingsVBox/QuitButton
 
 var _player: Node3D = null
-var _blips: Array = [] # each: {angle: float, dist: float, tag: String, life: float}
+var _blips: Array = []
+var _settings_open: bool = false
+
+const RESOLUTIONS: Array[Vector2i] = [
+	Vector2i(1280, 720),
+	Vector2i(1600, 900),
+	Vector2i(1920, 1080),
+	Vector2i(2560, 1440),
+	Vector2i(3840, 2160),
+]
 
 func _ready() -> void:
 	death_label.visible = false
 	Radar.ping_received.connect(_on_ping_received)
+	_populate_resolutions()
+	vsync_check.button_pressed = DisplayServer.window_get_vsync_mode() != DisplayServer.VSYNC_DISABLED
+	vsync_check.toggled.connect(_on_vsync_toggled)
+	resume_btn.pressed.connect(_on_resume_pressed)
+	quit_btn.pressed.connect(_on_quit_pressed)
 	set_process(true)
+
+
+func toggle_settings() -> void:
+	_settings_open = not _settings_open
+	settings_panel.visible = _settings_open
+	if _settings_open:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func are_settings_open() -> bool:
+	return _settings_open
+
+
+func _populate_resolutions() -> void:
+	var current_size: Vector2i = DisplayServer.window_get_size()
+	for i: int in range(RESOLUTIONS.size()):
+		var res: Vector2i = RESOLUTIONS[i]
+		res_option.add_item("%dx%d" % [res.x, res.y])
+		if res == current_size:
+			res_option.select(i)
+	res_option.item_selected.connect(_on_resolution_changed)
+
+
+func _on_resolution_changed(idx: int) -> void:
+	if idx >= 0 and idx < RESOLUTIONS.size():
+		var size: Vector2i = RESOLUTIONS[idx]
+		DisplayServer.window_set_size(size)
+
+
+func _on_resume_pressed() -> void:
+	toggle_settings()
+
+
+func _on_quit_pressed() -> void:
+	get_tree().quit()
+
+
+func _on_vsync_toggled(enabled: bool) -> void:
+	if enabled:
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
+	else:
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 
 func bind_player(player: Node3D) -> void:
 	_player = player

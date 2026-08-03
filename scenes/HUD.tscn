@@ -67,3 +67,66 @@ offset_bottom = 20.0
 theme_override_font_sizes/font_size = 32
 horizontal_alignment = 1
 text = "YOU DIED"
+
+[node name="SettingsPanel" type="Panel" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -150.0
+offset_right = 160.0
+offset_bottom = 150.0
+
+[node name="SettingsVBox" type="VBoxContainer" parent="Root/SettingsPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+horizontal_alignment = 1
+text = "Settings"
+
+[node name="ResHBox" type="HBoxContainer" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+
+[node name="ResLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox/ResHBox"]
+layout_mode = 2
+text = "Resolution"
+
+[node name="ResOption" type="OptionButton" parent="Root/SettingsPanel/SettingsVBox/ResHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VsyncHBox" type="HBoxContainer" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+
+[node name="VsyncLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox/VsyncHBox"]
+layout_mode = 2
+text = "Vsync"
+
+[node name="VsyncCheck" type="CheckButton" parent="Root/SettingsPanel/SettingsVBox/VsyncHBox"]
+layout_mode = 2
+button_pressed = true
+
+[node name="Spacer" type="Control" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ResumeButton" type="Button" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Resume"
+
+[node name="QuitButton" type="Button" parent="Root/SettingsPanel/SettingsVBox"]
+layout_mode = 2
+text = "Quit Game"

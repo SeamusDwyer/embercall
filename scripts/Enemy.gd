@@ -20,6 +20,7 @@ const GROWL_INTERVAL := 4.0
 var _attack_cooldown_left: float = 0.0
 var _growl_timer: float = GROWL_INTERVAL
 var _dead: bool = false
+var _knockback_velocity: Vector3 = Vector3.ZERO
 
 signal died
 
@@ -30,6 +31,15 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if not multiplayer.is_server() or _dead:
+		return
+
+	if _knockback_velocity.length() > 0.1:
+		velocity.x = _knockback_velocity.x
+		velocity.z = _knockback_velocity.z
+		_knockback_velocity = _knockback_velocity.move_toward(Vector3.ZERO, 15.0 * delta)
+		if not is_on_floor():
+			velocity.y -= ProjectSettings.get_setting("physics/3d/default_gravity") * delta
+		move_and_slide()
 		return
 
 	_growl_timer -= delta
@@ -104,6 +114,12 @@ func _die() -> void:
 	var col := get_node_or_null("CollisionShape3D")
 	if col:
 		col.disabled = true
+
+
+func apply_knockback(direction: Vector3, strength: float) -> void:
+	if not multiplayer.is_server():
+		return
+	_knockback_velocity = direction * strength
 
 
 func _on_ignited() -> void:

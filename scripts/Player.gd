@@ -74,7 +74,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		camera_pivot.rotate_x(-event.relative.y * MOUSE_SENSITIVITY)
 		camera_pivot.rotation.x = clamp(camera_pivot.rotation.x, deg_to_rad(-80), deg_to_rad(80))
 	if event.is_action_pressed("ui_cancel"):
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
+		if hud and hud.has_method("toggle_settings"):
+			hud.toggle_settings()
+			_mouse_captured = hud.are_settings_open() == false
 
 
 func _physics_process(delta: float) -> void:
@@ -111,6 +113,9 @@ func _physics_process(delta: float) -> void:
 
 	if _attack_cooldown_left > 0.0:
 		_attack_cooldown_left -= delta
+		_animate_weapon_swing()
+	else:
+		_reset_weapon()
 
 	var attack_triggered: bool
 	if autopilot:
@@ -125,9 +130,20 @@ func _physics_process(delta: float) -> void:
 
 
 func _do_attack() -> void:
-	# Client-side: trigger swing animation/VFX here once you have art.
-	# Server resolves who actually got hit via the RPC below.
 	_request_attack.rpc_id(1)
+
+
+func _animate_weapon_swing() -> void:
+	if not weapon_mesh:
+		return
+	var progress: float = 1.0 - (_attack_cooldown_left / ATTACK_COOLDOWN)
+	var angle: float = sin(progress * PI) * deg_to_rad(-45.0)
+	weapon_mesh.rotation_degrees = Vector3(angle, 0.0, 0.0)
+
+
+func _reset_weapon() -> void:
+	if weapon_mesh:
+		weapon_mesh.rotation_degrees = Vector3.ZERO
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -139,7 +155,15 @@ func _request_attack() -> void:
 		if body == self:
 			continue
 		if body.has_method("take_damage"):
-			body.take_damage(8.0)
+			body.take_damage(ATTACK_DAMAGE)
+		if body.has_method("apply_knockback"):
+			var kb_dir: Vector3 = body.global_position - global_position
+			kb_dir.y = 0.0
+			if kb_dir.length() > 0.01:
+				kb_dir = kb_dir.normalized()
+			else:
+				kb_dir = -global_transform.basis.z
+			body.apply_knockback(kb_dir, KNOCKBACK_STRENGTH)
 		var ignite_status = body.get_node_or_null("IgniteStatus")
 		if ignite_status and ignite_status is IgniteStatus:
 			ignite_status.apply_stacks(ATTACK_IGNITE_STACKS)
