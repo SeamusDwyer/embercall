@@ -1,0 +1,25 @@
+# Godot 4
+.godot/
+*.import
+
+# Windows junk
+*Zone.Identifier
+
+# Build artifacts
+export/
+*.exe
+*.pck
+
+# OS junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Test artifacts
+*.log

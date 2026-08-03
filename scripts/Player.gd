@@ -137,13 +137,15 @@ func _animate_weapon_swing() -> void:
 	if not weapon_mesh:
 		return
 	var progress: float = 1.0 - (_attack_cooldown_left / ATTACK_COOLDOWN)
-	var angle: float = sin(progress * PI) * deg_to_rad(-45.0)
+	var angle: float = sin(progress * PI) * deg_to_rad(-80.0)
 	weapon_mesh.rotation_degrees = Vector3(angle, 0.0, 0.0)
+	weapon_mesh.position.z = -0.9 - sin(progress * PI) * 0.6
 
 
 func _reset_weapon() -> void:
 	if weapon_mesh:
 		weapon_mesh.rotation_degrees = Vector3.ZERO
+		weapon_mesh.position.z = -0.9
 
 
 @rpc("any_peer", "call_local", "reliable")
