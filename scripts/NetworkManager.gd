@@ -12,6 +12,7 @@ const MAX_PLAYERS := 4
 const PLAYER_SCENE := preload("res://scenes/Player.tscn")
 
 var players := {} # peer_id -> Node3D (player instance)
+var _suppress_reload: bool = false
 var player_spawn_points: Array[Vector3] = [
 	Vector3(-2, 1, 0),
 	Vector3(2, 1, 0),
@@ -71,6 +72,8 @@ func _on_connection_failed() -> void:
 
 
 func _on_server_disconnected() -> void:
+	if _suppress_reload:
+		return
 	push_error("Server disconnected")
 	get_tree().reload_current_scene()
 
@@ -86,6 +89,7 @@ func _spawn_player(peer_id: int) -> void:
 @rpc("authority", "call_local", "reliable")
 func _do_spawn_player(peer_id: int, spawn_pos: Vector3) -> void:
 	var arena := get_tree().get_root().get_node_or_null("Main/Arena")
+	print("[SPAWN] peer_id=%d, arena=%s" % [peer_id, arena])
 	if arena == null:
 		return
 	var player := PLAYER_SCENE.instantiate()
@@ -94,4 +98,5 @@ func _do_spawn_player(peer_id: int, spawn_pos: Vector3) -> void:
 	arena.get_node("PlayerRoot").add_child(player)
 	player.global_position = spawn_pos
 	players[peer_id] = player
+	print("[SPAWN] player=%s added, players=%d" % [player, players.size()])
 	player_list_changed.emit()

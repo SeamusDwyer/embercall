@@ -63,7 +63,7 @@ func _process(delta: float) -> void:
 		changed = true
 	if changed:
 		radar_display.queue_redraw()
-	if _player and _player.get("stacks") != null:
+	if is_instance_valid(_player) and _player.get("stacks") != null:
 		pass # placeholder if you later expose player ignite stacks in the HUD
 
 

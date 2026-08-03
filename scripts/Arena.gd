@@ -39,6 +39,18 @@ func _on_exit_entered(body: Node3D) -> void:
 		_run_complete.rpc()
 
 
+func get_enemy() -> Enemy:
+	return enemy
+
+
+func is_enemy_dead() -> bool:
+	return _enemy_dead
+
+
+func is_exit_unlocked() -> bool:
+	return exit_zone.monitoring
+
+
 @rpc("authority", "call_local", "reliable")
 func _run_complete() -> void:
 	print("Run complete! (MVP end state - wire up a restart/next-room screen here)")

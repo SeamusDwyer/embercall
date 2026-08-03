@@ -73,8 +73,8 @@ func _extinguish() -> void:
 	extinguished.emit()
 
 func _try_spread() -> void:
-	var owner_node := get_parent()
-	var space := owner_node.get_world_3d().direct_space_state
+	var owner_node: Node3D = get_parent()
+	var space: PhysicsDirectSpaceState3D = owner_node.get_world_3d().direct_space_state
 	# Simple radius query using physics overlap on a temp shape.
 	var params := PhysicsShapeQueryParameters3D.new()
 	var shape := SphereShape3D.new()
@@ -83,7 +83,7 @@ func _try_spread() -> void:
 	params.transform = Transform3D(Basis(), owner_node.global_position)
 	params.collide_with_areas = true
 	params.collide_with_bodies = true
-	var hits := space.intersect_shape(params, 8)
+	var hits: Array[Dictionary] = space.intersect_shape(params, 8)
 	for hit in hits:
 		var collider = hit.get("collider")
 		if collider == null or collider == owner_node:

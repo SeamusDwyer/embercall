@@ -6,10 +6,13 @@ extends CharacterBody3D
 ## through server-authoritative RPCs so the server stays the source of truth.
 
 const SPEED := 5.0
-const JUMP_VELOCITY := 6.0
+const JUMP_HEIGHT := 1.2
 const MOUSE_SENSITIVITY := 0.0025
 const ATTACK_COOLDOWN := 0.6
-const ATTACK_IGNITE_STACKS := 1 # this weapon always applies Ignite; swap for archetype variety later
+const ATTACK_IGNITE_STACKS := 1
+const ATTACK_DAMAGE := 8.0
+const KNOCKBACK_STRENGTH := 8.0
+const GRAVITY := 18.0
 
 @export var max_health: float = 100.0
 var health: float = 100.0
@@ -18,10 +21,16 @@ var health: float = 100.0
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var attack_area: Area3D = $CameraPivot/AttackArea
 @onready var attack_shape: CollisionShape3D = $CameraPivot/AttackArea/CollisionShape3D
-@onready var hud: CanvasLayer = null # assigned at runtime for the local player only
+@onready var weapon_mesh: MeshInstance3D = $CameraPivot/WeaponMesh
+@onready var hud: CanvasLayer = null
+
+var autopilot: bool = false
+var scripted_move_dir: Vector3 = Vector3.ZERO
+var scripted_attack_requested: bool = false
 
 var _attack_cooldown_left: float = 0.0
 var _footstep_dist_accum: float = 0.0
+var _mouse_captured: bool = false
 
 func _ready() -> void:
 	health = max_health
@@ -32,17 +41,33 @@ func _ready() -> void:
 	# since only the server's overlap state is authoritative.
 	if is_multiplayer_authority():
 		camera.current = true
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		if not autopilot:
+			_set_mouse_captured.call_deferred()
 		var hud_scene := preload("res://scenes/HUD.tscn")
 		hud = hud_scene.instantiate()
-		get_tree().get_root().add_child(hud)
-		hud.bind_player(self)
+		get_tree().get_root().add_child.call_deferred(hud)
+		hud.bind_player.call_deferred(self)
 	else:
 		camera.current = false
 
 
+func _set_mouse_captured() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_mouse_captured = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_WINDOW_FOCUS_IN or what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		if is_multiplayer_authority() and not autopilot:
+			_set_mouse_captured()
+	elif what == NOTIFICATION_WM_WINDOW_FOCUS_OUT or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_mouse_captured = false
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority():
+		return
+	if not _mouse_captured:
 		return
 	if event is InputEventMouseMotion:
 		rotate_y(-event.relative.x * MOUSE_SENSITIVITY)
@@ -57,15 +82,20 @@ func _physics_process(delta: float) -> void:
 		return
 
 	if not is_on_floor():
-		velocity.y -= ProjectSettings.get_setting("physics/3d/default_gravity") * delta
+		velocity.y -= GRAVITY * delta
 	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = JUMP_VELOCITY
+		velocity.y = sqrt(2.0 * GRAVITY * JUMP_HEIGHT)
 
-	var input_dir := Vector2(
-		Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
-		Input.get_action_strength("move_back") - Input.get_action_strength("move_forward")
-	)
-	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
+	var direction: Vector3
+	if autopilot:
+		direction = scripted_move_dir
+	else:
+		var input_dir := Vector2(
+			Input.get_action_strength("move_right") - Input.get_action_strength("move_left"),
+			Input.get_action_strength("move_back") - Input.get_action_strength("move_forward")
+		)
+		direction = (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
+
 	if direction.length() > 0.01:
 		velocity.x = direction.x * SPEED
 		velocity.z = direction.z * SPEED
@@ -82,7 +112,14 @@ func _physics_process(delta: float) -> void:
 	if _attack_cooldown_left > 0.0:
 		_attack_cooldown_left -= delta
 
-	if Input.is_action_just_pressed("attack") and _attack_cooldown_left <= 0.0:
+	var attack_triggered: bool
+	if autopilot:
+		attack_triggered = scripted_attack_requested
+		scripted_attack_requested = false
+	else:
+		attack_triggered = Input.is_action_just_pressed("attack")
+
+	if attack_triggered and _attack_cooldown_left <= 0.0:
 		_attack_cooldown_left = ATTACK_COOLDOWN
 		_do_attack()
 
