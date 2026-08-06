@@ -1,7 +1,6 @@
 extends Node
-## Root scene script. Shows a minimal host/join panel; hides it once a
-## multiplayer session starts. This is intentionally bare-bones for the
-## vertical slice - swap for a real menu once the core loop is fun.
+## Root scene script. Hosts/joins games, manages room progression,
+## and wires the Arena to the RoomManager for the roguelike loop.
 
 const AUTOPILOT_SCENE := preload("res://tests/Autopilot.gd")
 
@@ -10,10 +9,14 @@ const AUTOPILOT_SCENE := preload("res://tests/Autopilot.gd")
 @onready var host_btn: Button = $UI/MenuPanel/VBox/HostButton
 @onready var join_btn: Button = $UI/MenuPanel/VBox/JoinButton
 @onready var status_label: Label = $UI/MenuPanel/VBox/StatusLabel
+@onready var arena: Node3D = $Arena
+
+var _run_started := false
+var _autopilot: Node = null
+
 
 func _ready() -> void:
 	var args := OS.get_cmdline_args()
-	print("[MAIN] cmdline_args: ", args)
 	if _has_arg(args, "--autopilot"):
 		_start_autopilot()
 		return
@@ -52,10 +55,47 @@ func _get_arg_value(args: Array, prefix: String) -> String:
 	return ""
 
 
+func _start_run() -> void:
+	if _run_started:
+		return
+	_run_started = true
+
+	RoomManager.start_run()
+	if not arena.exit_triggered.is_connected(_on_arena_exit):
+		arena.exit_triggered.connect(_on_arena_exit)
+	RoomManager.run_complete.connect(_on_run_complete)
+
+	var first_room := RoomManager.begin_first_room()
+	if not first_room.is_empty():
+		arena.configure(first_room)
+
+
+func _on_arena_exit() -> void:
+	if is_instance_valid(_autopilot):
+		_autopilot.notify_exit_fired()
+
+	if RoomManager.get_available_choices().is_empty():
+		var act_room := RoomManager.start_next_act()
+		if act_room.is_empty():
+			_on_run_complete()
+			return
+		arena.configure(act_room)
+	else:
+		var next_room := RoomManager.get_current_room()
+		if not next_room.is_empty():
+			arena.configure(next_room)
+
+
+func _on_run_complete() -> void:
+	print("Run complete! All 3 acts cleared.")
+	get_tree().paused = false
+
+
 func _start_steam_host() -> void:
 	menu.visible = false
 	Net.host_game(Net.Transport.STEAM)
 	status_label.text = "Hosting via Steam..."
+
 
 func _start_steam_join(args: Array) -> void:
 	menu.visible = false
@@ -67,30 +107,40 @@ func _start_steam_join(args: Array) -> void:
 func _start_autopilot() -> void:
 	menu.visible = false
 	Net.host_game()
-	print("[AUTOPILOT] hosted game, connecting player_list_changed signal")
 	Net.player_list_changed.connect(_on_autopilot_player_spawned)
-	# In case the player was already spawned synchronously
 	if Net.players.size() > 0:
-		print("[AUTOPILOT] player already spawned")
 		_on_autopilot_player_spawned()
 
 
 func _on_autopilot_player_spawned() -> void:
-	print("[AUTOPILOT] player_list_changed, players.size()=%d" % Net.players.size())
 	if Net.players.size() == 0:
 		return
 	var pid: int = Net.players.keys()[0]
 	var player = Net.players[pid]
 	player.autopilot = true
-	print("[AUTOPILOT] player=%s, arena=%s" % [player, $Arena])
+
+	_ensure_run_started()
 
 	var autopilot: Node = AUTOPILOT_SCENE.new()
 	autopilot.name = "Autopilot"
+	_autopilot = autopilot
 	add_child.call_deferred(autopilot)
-	autopilot.setup(player, $Arena)
-	print("[AUTOPILOT] autopilot setup complete")
+	autopilot.setup(player, arena)
 
 	Net.player_list_changed.disconnect(_on_autopilot_player_spawned)
+
+
+func _ensure_run_started() -> void:
+	if _run_started:
+		return
+	RoomManager.start_run()
+	if not arena.exit_triggered.is_connected(_on_arena_exit):
+		arena.exit_triggered.connect(_on_arena_exit)
+	RoomManager.run_complete.connect(_on_run_complete)
+	var first_room := RoomManager.begin_first_room()
+	if not first_room.is_empty():
+		arena.configure(first_room)
+	_run_started = true
 
 
 func _start_autojoin(args: Array) -> void:
@@ -104,12 +154,10 @@ func _start_autojoin(args: Array) -> void:
 			addr = stripped
 		elif arg == "--autojoin" and i + 1 < args.size():
 			addr = str(args[i + 1])
-	print("[AUTOJOIN] connecting to %s" % addr)
 	Net.join_game(addr)
 	multiplayer.server_disconnected.connect(_on_autojoin_server_disconnected)
 	multiplayer.connection_failed.connect(_on_autojoin_connection_failed)
 	multiplayer.connected_to_server.connect(_on_autojoin_connected)
-	# Timeout: if no connection within 20s, fail
 	var timeout_timer := get_tree().create_timer(20.0)
 	timeout_timer.timeout.connect(_on_autojoin_timeout.bind(timeout_timer))
 
@@ -130,7 +178,7 @@ func _on_autojoin_connection_failed() -> void:
 
 func _on_autojoin_timeout(timer: SceneTreeTimer) -> void:
 	if multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
-		return  # already connected, ignore stale timeout
+		return
 	print("TEST_RESULT: FAIL: autojoin timeout waiting for host")
 	get_tree().quit(1)
 
@@ -152,3 +200,5 @@ func _on_join_pressed() -> void:
 
 func _on_player_list_changed() -> void:
 	print("Players connected: ", Net.players.size())
+	if multiplayer.is_server() and Net.players.size() > 0:
+		_start_run()

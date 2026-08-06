@@ -24,6 +24,7 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 Net="*res://scripts/NetworkManager.gd"
 Radar="*res://scripts/Radar.gd"
 DebugShapes="*res://scripts/DebugShapes.gd"
+RoomManager="*res://scripts/RoomManager.gd"
 
 [display]
 

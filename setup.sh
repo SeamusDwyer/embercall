@@ -4,7 +4,7 @@
 
 set -e
 
-GUT_VERSION="${GUT_VERSION:-v9.7.1}"
+GUT_VERSION="${GUT_VERSION:-v9.3.0}"
 GUT_URL="https://github.com/bitwes/Gut/archive/refs/tags/${GUT_VERSION}.zip"
 GUT_DIR="addons/gut"
 TMP_ZIP="/tmp/gut_${GUT_VERSION}.zip"

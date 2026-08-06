@@ -41,8 +41,9 @@ func apply_physics(delta: float) -> Node3D:
 
 	if dist > ATTACK_RANGE:
 		var dir := to_target.normalized()
-		enemy.velocity.x = dir.x * SPEED
-		enemy.velocity.z = dir.z * SPEED
+		var spd: float = enemy.move_speed if "move_speed" in enemy else SPEED
+		enemy.velocity.x = dir.x * spd
+		enemy.velocity.z = dir.z * spd
 		if not enemy.is_on_floor():
 			enemy.velocity.y -= ProjectSettings.get_setting("physics/3d/default_gravity") * delta
 		enemy.look_at(Vector3(target.global_position.x, enemy.global_position.y, target.global_position.z), Vector3.UP)

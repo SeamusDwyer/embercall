@@ -1,9 +1,13 @@
 extends CharacterBody3D
 class_name Enemy
 ## Thin wrapper. Delegates to EnemyMovement, EnemyCombat, EnemyHealth.
+## Supports static encounter configuration (hp, speed, scale, color, name).
 
 @export var max_health: float = 40.0
 @export var health: float = 40.0
+@export var move_speed: float = 3.0
+@export var encounter_name: String = "Enemy"
+@export var base_color: Color = Color(0.55, 0.1, 0.15)
 
 @onready var ignite: IgniteStatus = $IgniteStatus
 @onready var mesh: MeshInstance3D = $MeshInstance3D
@@ -35,15 +39,45 @@ func _ready() -> void:
 	ignite.ignited.connect(_on_ignited)
 	ignite.extinguished.connect(_on_extinguished)
 	set_process(true)
+	_apply_base_color()
+
+
+func configure_enemy(data: Dictionary) -> void:
+	if multiplayer.is_server():
+		_sync_configure_enemy.rpc(data)
+	_apply_enemy_config(data)
+
+
+@rpc("authority", "call_local", "reliable")
+func _sync_configure_enemy(data: Dictionary) -> void:
+	_apply_enemy_config(data)
+
+
+func _apply_enemy_config(data: Dictionary) -> void:
+	encounter_name = data.get("name", "Enemy")
+	max_health = data.get("hp", 40.0)
+	health = max_health
+	move_speed = data.get("speed", 3.0)
+	if data.has("scale") and data["scale"] is Vector3:
+		scale = data["scale"]
+	if data.has("color") and data["color"] is Color:
+		base_color = data["color"]
+	_apply_base_color()
+
+
+func _apply_base_color() -> void:
+	if mesh and is_instance_valid(mesh):
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = base_color
+		mesh.material_override = mat
 
 
 func _process(_delta: float) -> void:
-	if not mesh:
+	if not mesh or not is_instance_valid(mesh):
 		return
-	var mat := mesh.get_surface_override_material(0)
-	if ignite.is_burning and mat == null:
+	if ignite.is_burning:
 		_on_ignited()
-	elif not ignite.is_burning and mat != null:
+	else:
 		_on_extinguished()
 
 
@@ -85,28 +119,28 @@ func _die() -> void:
 
 @rpc("authority", "call_local", "reliable")
 func _tell_attack() -> void:
-	if mesh:
+	if mesh and is_instance_valid(mesh):
 		var mat := StandardMaterial3D.new()
 		mat.albedo_color = Color(1.0, 0.5, 0.1)
 		mat.emission_enabled = true
 		mat.emission = Color(1.0, 0.3, 0.0)
 		mat.emission_energy_multiplier = 1.5
-		mesh.set_surface_override_material(0, mat)
+		mesh.material_override = mat
 
 
 @rpc("authority", "call_local", "reliable")
 func _flash_attack() -> void:
-	if not mesh:
+	if not mesh or not is_instance_valid(mesh):
 		return
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(1.0, 0.2, 0.15)
 	mat.emission_enabled = true
 	mat.emission = Color(1.0, 0.1, 0.05)
 	mat.emission_energy_multiplier = 4.0
-	mesh.set_surface_override_material(0, mat)
+	mesh.material_override = mat
 	await get_tree().create_timer(0.15).timeout
-	if mesh and mesh.get_surface_override_material(0) == mat:
-		mesh.set_surface_override_material(0, null)
+	if is_instance_valid(self) and is_instance_valid(mesh):
+		_apply_base_color()
 
 
 @rpc("authority", "call_local", "reliable")
@@ -115,15 +149,14 @@ func _spawn_hit_impact(pos: Vector3) -> void:
 
 
 func _on_ignited() -> void:
-	if mesh:
+	if mesh and is_instance_valid(mesh):
 		var mat := StandardMaterial3D.new()
 		mat.albedo_color = Color(1.0, 0.3, 0.1)
 		mat.emission_enabled = true
 		mat.emission = Color(1.0, 0.4, 0.0)
 		mat.emission_energy_multiplier = 2.0
-		mesh.set_surface_override_material(0, mat)
+		mesh.material_override = mat
 
 
 func _on_extinguished() -> void:
-	if mesh:
-		mesh.set_surface_override_material(0, null)
+	_apply_base_color()

@@ -54,7 +54,7 @@ func _set_mouse_captured() -> void:
 
 
 func _notification(what: int) -> void:
-	if _camera:
+	if _camera and is_instance_valid(_camera) and _camera.has_method("handle_notification"):
 		_camera.handle_notification(what, autopilot)
 
 

@@ -242,6 +242,8 @@ func replay_state_to_peer(peer_id: int) -> void:
 		var pos: Vector3 = p.global_position if p.global_position != Vector3.ZERO else player_spawn_points[existing_id % player_spawn_points.size()]
 		_do_spawn_player.rpc_id(peer_id, existing_id, pos)
 
+	RoomManager.sync_to_peer(peer_id)
+
 	var arena := get_tree().get_root().get_node_or_null("Main/Arena")
 	if arena and arena.has_method("_sync_arena_state"):
 		arena._sync_arena_state.rpc_id(peer_id)

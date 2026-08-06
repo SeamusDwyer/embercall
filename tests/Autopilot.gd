@@ -6,6 +6,7 @@ var arena: Node3D
 var _timer: float = 0.0
 var _result_reported: bool = false
 var _last_attack_time: float = 0.0
+var _in_airlock: bool = false
 
 func setup(p: CharacterBody3D, a: Node3D) -> void:
 	player = p
@@ -17,22 +18,34 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_timer += delta
-	if _timer > 30.0:
-		_report("FAIL: timeout after 30s")
+	if _timer > 45.0:
+		_report("FAIL: timeout after 45s")
 		return
 
-	var enemy: Node3D = arena.get_enemy()
 	var enemy_dead: bool = arena.is_enemy_dead()
 	var exit_unlocked: bool = arena.is_exit_unlocked()
 
 	var target_pos: Vector3
-	if enemy_dead and exit_unlocked:
-		target_pos = arena.exit_zone.global_position
-		if player.global_position.distance_to(target_pos) < 2.0:
-			_report("PASS")
+
+	if exit_unlocked:
+		# Walk all the way into the airlock to trigger body_entered
+		target_pos = arena.get_airlock_position()
+		if player.global_position.distance_to(target_pos) < 0.5:
+			player.scripted_move_dir = Vector3.ZERO
+			if not _in_airlock:
+				_in_airlock = true
+				print("[Autopilot] Reached airlock — waiting for exit_triggered")
+			if _check_exit_fired():
+				_report("PASS")
 			return
-	elif enemy and is_instance_valid(enemy):
-		target_pos = enemy.global_position
+		else:
+			_in_airlock = false
+	elif arena.get_enemy() != null:
+		var enemy: Node3D = arena.get_enemy()
+		if is_instance_valid(enemy):
+			target_pos = enemy.global_position
+		else:
+			return
 	else:
 		return
 
@@ -49,7 +62,17 @@ func _physics_process(delta: float) -> void:
 	elif dist > 0.1:
 		player.scripted_move_dir = to_target.normalized()
 
-	player.look_at(Vector3(target_pos.x, player_pos.y, target_pos.z), Vector3.UP)
+	if target_pos != Vector3.ZERO:
+		player.look_at(Vector3(target_pos.x, player_pos.y, target_pos.z), Vector3.UP)
+
+
+var _exit_fired := false
+
+func notify_exit_fired() -> void:
+	_exit_fired = true
+
+func _check_exit_fired() -> bool:
+	return _exit_fired
 
 
 func _report(result: String) -> void:
