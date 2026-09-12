@@ -12,9 +12,13 @@ Main.gd (root scene)
 │   │       ├── IgniteStatus     burn state, ticks, spread
 │   │       ├── PlayerMovement   WASD/jump, footstep pings
 │   │       ├── PlayerCamera     mouse look, settings toggle
-│   │       ├── PlayerCombat     melee swings, hit detection → Ignite stacks
+│   │       ├── PlayerCombat     swing phase machine, hit detection → Ignite stacks
 │   │       ├── PlayerHealth     damage → _sync_health, _on_death
-│   │       └── WeaponPivot      swing animation
+│   │       └── CameraPivot
+│   │           ├── WeaponPivot  spring-driven weapon transform
+│   │           │   └── hammer   real weapon mesh
+│   │           └── Swings/      ghost keyframe poses (editor authoring)
+│   │               └── SwingN/{Anticipation, Final}
 │   │
 │   ├── Enemies/
 │   │   └── Enemy (body)
@@ -72,6 +76,28 @@ Main.gd (root scene)
    └── Player._spawn_hit_impact.rpc(pos)
 ```
 
+## Data flow: weapon swing animation
+
+```
+Authoring (editor only):
+  CameraPivot/Swings/SwingN/{Anticipation, Final}   ghost hammers
+    ├── transforms are the swing keyframes
+    └── SwingGhost.gd renders them translucent + shadowless; Player hides
+        them at runtime unless the `show_ghosts` export is enabled
+
+Runtime (cosmetic, runs on every peer, per render frame):
+1. Player._physics_process → PlayerCombat.trigger_attack()
+   └── snapshots Anticipation + Final ghost transforms into WeaponPivot space
+       (scaled by swing_amplitude), advances to the next SwingN
+2. Player._process(delta) → PlayerCombat.process_visual(delta)
+   ├── phase machine: ANTICIPATION → STRIKE → HOLD → IDLE
+   │     (durations: anticipation_time / strike_time / hold_time)
+   ├── target transform = current phase pose, or rest pose when IDLE
+   └── DampedSpring3D.step() for position + rotation (frequency / bounce)
+       └── weapon_pivot.position / rotation = spring value
+           → frame-rate independent, stable on large deltas
+```
+
 ## Data flow: audio-radar ping
 
 ```
@@ -117,7 +143,7 @@ Replicates to all:                      MultiplayerSynchronizer
 scripts/
 ├── Main.gd                    root scene: menu + CLI flags (autopilot, autojoin, steam)
 ├── Arena.gd                   run loop: enemy death → exit unlock → run complete
-├── Player.gd                  thin wrapper, instantiates movement/camera/combat/health
+├── Player.gd                  thin wrapper; movement/camera/combat/health + swing poses
 ├── Enemy.gd                   thin wrapper, instantiates movement/combat/health
 ├── IgniteStatus.gd            reusable burn component (stacks, ticks, spread)
 ├── Flammable.gd               environmental prop using IgniteStatus
@@ -126,10 +152,12 @@ scripts/
 ├── RadarDisplay.gd            draws radar blips on circular minimap
 ├── NetworkManager.gd          autoload: ENet/Steam host/join, player spawn, late-join replay
 ├── DebugShapes.gd             autoload: hitbox/impact visualization overlay
+├── DampedSpring3D.gd          analytic frame-rate-independent spring (position/rotation)
+├── SwingGhost.gd              @tool ghost pose marker (translucent, authoring only)
 ├── player/
 │   ├── PlayerMovement.gd      WASD, jump, footstep pings, remote interpolation
 │   ├── PlayerCamera.gd        mouse capture/look, settings toggle
-│   ├── PlayerCombat.gd        melee swing (3 patterns), hit detect, Ignite apply
+│   ├── PlayerCombat.gd        swing phase machine (anticipation/strike/hold), hit detect
 │   └── PlayerHealth.gd        damage sync, death
 ├── enemy/
 │   ├── EnemyMovement.gd       chase nearest player, growl pings, knockback
@@ -143,7 +171,7 @@ scripts/
 scenes/
 ├── Main.tscn                  root: UI + Arena
 ├── Arena.tscn                 walled room, enemy, 3 props, exit zone
-├── Player.tscn                CharacterBody3D + IgniteStatus + MultiplayerSynchronizer
+├── Player.tscn                body + IgniteStatus + WeaponPivot/hammer + Swings ghost poses
 ├── Enemy.tscn                 CharacterBody3D + IgniteStatus + MultiplayerSynchronizer
 ├── FlammableProp.tscn         Node3D + IgniteStatus + fire VFX + hazard area
 └── HUD.tscn                   CanvasLayer with health bar, radar display, settings

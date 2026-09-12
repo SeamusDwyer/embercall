@@ -6,8 +6,9 @@ two things before investing further: **audio-radar perception** and the
 environment). Everything else is deliberately bare-bones.
 
 ## Requirements
-- Godot 4.3+ (uses `@rpc` annotations, `MultiplayerSynchronizer`,
-  `SceneReplicationConfig` — all Godot 4.x high-level multiplayer API).
+- Built and tested with **Godot 4.7.1.stable** (official build). Uses `@rpc`
+  annotations, `MultiplayerSynchronizer`, and `SceneReplicationConfig` — all
+  Godot 4.x high-level multiplayer API.
 
 ## Running it
 1. Open the project folder in Godot 4.
