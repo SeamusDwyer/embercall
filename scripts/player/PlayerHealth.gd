@@ -2,6 +2,9 @@ extends Node
 class_name PlayerHealth
 ## Handles health, damage, and death. Reads/writes player.health/max_health.
 
+signal health_changed(new_health: float, old_health: float)
+signal died
+
 var player: CharacterBody3D
 
 
@@ -12,9 +15,12 @@ func setup(p: CharacterBody3D) -> void:
 func take_damage(amount: float) -> void:
 	if not multiplayer.is_server():
 		return
+	var old_health: float = player.health
 	player.health = max(0.0, player.health - amount)
+	health_changed.emit(player.health, old_health)
 	player._sync_health.rpc(player.health)
 	if player.health <= 0.0:
+		died.emit()
 		player._on_death.rpc()
 
 

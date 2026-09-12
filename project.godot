@@ -25,6 +25,7 @@ Net="*res://scripts/NetworkManager.gd"
 Radar="*res://scripts/Radar.gd"
 DebugShapes="*res://scripts/DebugShapes.gd"
 RoomManager="*res://scripts/RoomManager.gd"
+GameState="*res://scripts/GameState.gd"
 
 [display]
 

@@ -2,6 +2,7 @@
 .godot/
 *.import
 addons/
+assets/
 
 # Windows junk
 *Zone.Identifier

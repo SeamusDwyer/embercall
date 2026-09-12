@@ -3,6 +3,25 @@ extends CharacterBody3D
 @export var max_health: float = 100.0
 var health: float = 100.0
 
+@export_category("Weapon")
+@export var weapon_pivot_path: NodePath = ^"CameraPivot/WeaponPivot"
+@export var swings: Array[NodePath] = [
+	^"CameraPivot/Swings/Swing1",
+	^"CameraPivot/Swings/Swing2",
+	^"CameraPivot/Swings/Swing3",
+]
+@export var swing_cooldown: float = 0.35
+@export var swing_amplitude: float = 1.0
+@export var swing_frequency: float = 4.0
+@export var swing_bounce: float = 0.6
+@export var anticipation_time: float = 0.12
+@export var strike_time: float = 0.10
+@export var hold_time: float = 0.06
+@export var show_ghosts: bool = false:
+	set(value):
+		show_ghosts = value
+		_update_ghost_visibility()
+
 @onready var camera: Camera3D = $CameraPivot/Camera3D
 @onready var camera_pivot: Node3D = $CameraPivot
 @onready var hud: CanvasLayer = null
@@ -15,6 +34,7 @@ var _movement: PlayerMovement
 var _camera: PlayerCamera
 var _combat: PlayerCombat
 var _health: PlayerHealth
+var _swings: Array[Node3D] = []
 
 
 func _ready() -> void:
@@ -28,9 +48,13 @@ func _ready() -> void:
 	add_child(_camera)
 	_camera.setup(self, camera_pivot, camera)
 
+	_resolve_swings()
+	_update_ghost_visibility()
+
 	_combat = PlayerCombat.new()
 	add_child(_combat)
-	_combat.setup(self, $CameraPivot/AttackArea, $CameraPivot/WeaponPivot)
+	var pivot_node := get_node_or_null(weapon_pivot_path) as Node3D
+	_combat.setup(self, $CameraPivot/AttackArea, pivot_node, _swings)
 
 	_health = PlayerHealth.new()
 	add_child(_health)
@@ -51,6 +75,20 @@ func _ready() -> void:
 
 func _set_mouse_captured() -> void:
 	_camera.capture()
+
+
+func _resolve_swings() -> void:
+	_swings.clear()
+	for path in swings:
+		var node := get_node_or_null(path) as Node3D
+		if node:
+			_swings.append(node)
+
+
+func _update_ghost_visibility() -> void:
+	for swing in _swings:
+		if is_instance_valid(swing):
+			swing.visible = show_ghosts
 
 
 func _notification(what: int) -> void:
@@ -82,6 +120,10 @@ func _physics_process(delta: float) -> void:
 
 	if _combat.attack_requested and _combat.cooldown_left <= 0.0:
 		_combat.trigger_attack()
+
+
+func _process(delta: float) -> void:
+	_combat.process_visual(delta)
 
 
 # -- RPCs (must live on authority node) --

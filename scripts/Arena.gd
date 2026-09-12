@@ -17,6 +17,7 @@ const DOOR_MAT_UNLOCKED_COLOR := Color(0.0, 0.4, 0.7)
 const DOOR_MAT_UNLOCKED_EMIT  := Color(0.0, 0.5, 1.0)
 
 signal exit_triggered
+signal enemy_spawned(enemy: Enemy)
 
 # Dynamically created nodes (not in the .tscn — built in _ready)
 var airlock: Area3D
@@ -202,6 +203,7 @@ func _spawn_encounter(room_data: Dictionary) -> void:
 		enemy.position = edata.get("pos", Vector3(0, 1.0, -5))
 		enemy.died.connect(_on_enemy_died)
 		_enemies.append(enemy)
+		enemy_spawned.emit(enemy)
 
 
 func _auto_clear() -> void:

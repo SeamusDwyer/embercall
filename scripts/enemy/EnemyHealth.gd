@@ -2,6 +2,8 @@ extends Node
 class_name EnemyHealth
 ## Health, damage, death. Reads/writes enemy.health/max_health.
 
+signal health_changed(new_health: float, old_health: float)
+
 var enemy: Enemy
 
 func setup(e: Enemy) -> void:
@@ -13,7 +15,9 @@ func take_damage(amount: float) -> bool:
 		return false
 	if not is_instance_valid(enemy):
 		return false
+	var old_health := enemy.health
 	enemy.health = max(0.0, enemy.health - amount)
+	health_changed.emit(enemy.health, old_health)
 	enemy._sync_health.rpc(enemy.health)
 	if enemy.health <= 0.0:
 		enemy._die.rpc()
