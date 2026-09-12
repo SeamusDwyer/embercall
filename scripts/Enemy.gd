@@ -12,6 +12,7 @@ class_name Enemy
 @onready var ignite: IgniteStatus = $IgniteStatus
 @onready var mesh: MeshInstance3D = $MeshInstance3D
 @onready var weapon_mesh: MeshInstance3D = $WeaponMesh
+@onready var health_bar: HealthBar3D = $HealthBar
 
 var _movement: EnemyMovement
 var _combat: EnemyCombat
@@ -40,6 +41,7 @@ func _ready() -> void:
 	ignite.extinguished.connect(_on_extinguished)
 	set_process(true)
 	_apply_base_color()
+	_refresh_health_bar()
 
 
 func configure_enemy(data: Dictionary) -> void:
@@ -63,6 +65,7 @@ func _apply_enemy_config(data: Dictionary) -> void:
 	if data.has("color") and data["color"] is Color:
 		base_color = data["color"]
 	_apply_base_color()
+	_refresh_health_bar()
 
 
 func _apply_base_color() -> void:
@@ -70,6 +73,11 @@ func _apply_base_color() -> void:
 		var mat := StandardMaterial3D.new()
 		mat.albedo_color = base_color
 		mesh.material_override = mat
+
+
+func _refresh_health_bar() -> void:
+	if health_bar and is_instance_valid(health_bar):
+		health_bar.set_health(health, max_health)
 
 
 func _process(_delta: float) -> void:

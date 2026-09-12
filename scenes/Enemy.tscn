@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/Enemy.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/IgniteStatus.gd" id="2"]
+[ext_resource type="Script" uid="uid://bravypfq5fwkk" path="res://scripts/vfx/HealthBar3D.gd" id="3"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_enemy"]
 radius = 0.5
@@ -49,6 +50,10 @@ surface_material_override/0 = SubResource("StandardMaterial3D_enemy")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, -1.1)
 mesh = SubResource("BoxMesh_weapon")
 surface_material_override/0 = SubResource("StandardMaterial3D_weapon")
+
+[node name="HealthBar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.35, 0)
+script = ExtResource("3")
 
 [node name="IgniteStatus" type="Node" parent="."]
 script = ExtResource("2")

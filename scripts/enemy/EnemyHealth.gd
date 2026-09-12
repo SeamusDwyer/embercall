@@ -27,6 +27,8 @@ func take_damage(amount: float) -> bool:
 
 func sync_hp(new_hp: float) -> void:
 	enemy.health = new_hp
+	if enemy.health_bar and is_instance_valid(enemy.health_bar):
+		enemy.health_bar.set_health(enemy.health, enemy.max_health)
 
 
 func apply_death_visuals() -> void:

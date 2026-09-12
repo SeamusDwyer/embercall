@@ -25,7 +25,8 @@ Main.gd (root scene)
 │   │       ├── IgniteStatus     same component, separate instance
 │   │       ├── EnemyMovement    chase nearest player, growl pings
 │   │       ├── EnemyCombat      TELL→SWING→RECOVERY attack state machine
-│   │       └── EnemyHealth      damage → _sync_health, _die
+│   │       ├── EnemyHealth      damage → _sync_health, _die
+│   │       └── HealthBar3D      world-space billboarded health bar
 │   │
 │   ├── Props/                   FlammableProp (crates etc.)
 │   │   ├── IgniteStatus         catches fire from spread
@@ -164,7 +165,8 @@ scripts/
 │   ├── EnemyCombat.gd         TELL→SWING→RECOVERY state machine
 │   └── EnemyHealth.gd         damage sync, death visuals
 ├── vfx/
-│   └── HitImpact.gd           shared hit marker sphere (tweened fade-out)
+│   ├── HitImpact.gd           shared hit marker sphere (tweened fade-out)
+│   └── HealthBar3D.gd         billboarded health bar + health_bar.gdshader
 └── lobby/
     └── LobbyManager.gd        Steam lobby lifecycle (not yet wired into Main)
 
