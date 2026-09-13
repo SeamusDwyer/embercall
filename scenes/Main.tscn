@@ -1,13 +1,15 @@
 [gd_scene format=3 uid="uid://c6alg7wpx2ddn"]
 
 [ext_resource type="Script" uid="uid://dgo8oxoheaeai" path="res://scripts/Main.gd" id="1"]
-[ext_resource type="PackedScene" path="res://scenes/Arena.tscn" id="2"]
+[ext_resource type="Script" path="res://scripts/World.gd" id="2"]
 
 [node name="Main" type="Node" unique_id=1788058315]
 script = ExtResource("1")
 
-[node name="Arena" parent="." unique_id=1084705409 instance=ExtResource("2")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.030433655, 9.536743e-07, -0.021627426)
+[node name="World" type="Node3D" parent="." unique_id=1084705409]
+script = ExtResource("2")
+
+[node name="PlayerRoot" type="Node3D" parent="." unique_id=1543091877]
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=1898062558]
 

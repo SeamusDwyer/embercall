@@ -1,7 +1,8 @@
 extends Node3D
-## Physical 3D map placed on a wall in each room.
-## Shows the full act map — room markers, connections, current position.
-## Clickable markers on the next floor select the next room.
+## Physical 3D map placed on the wall of the current room.
+## Reference only — shows the act layout, where the player is, and which rooms
+## are reachable through open doors. Selection happens at the doors themselves,
+## so markers are not clickable.
 
 const MARKER_SIZE := 0.06
 const FLOOR_SPACING := 0.28
@@ -9,6 +10,7 @@ const ROOM_SPACING := 0.18
 const MAP_PADDING := Vector3(0.12, 0.12, 0.0)
 
 var _markers: Array[Dictionary] = []
+var _marker_pos: Dictionary = {}   # room_id -> Vector3 (local board space)
 var _current_act: int = 0
 
 
@@ -39,6 +41,7 @@ func _clear_map() -> void:
 	for child in get_children():
 		child.queue_free()
 	_markers.clear()
+	_marker_pos.clear()
 
 
 func _build_map(act_data: Dictionary) -> void:
@@ -66,11 +69,16 @@ func _build_map(act_data: Dictionary) -> void:
 			var room_data: Dictionary = floor_rooms[ri]
 			var row_y := bottom_left.y - ri * ROOM_SPACING
 			var pos := Vector3(col_x, row_y, bottom_left.z - 0.01)
+			_marker_pos[room_data["id"]] = pos
 			_create_marker(room_data, pos)
 
-		if fi < total_floors - 1:
-			var next_rooms: Array = floors[fi + 1]
-			_draw_connections(floor_rooms, next_rooms, fi, bottom_left)
+	for fi in range(total_floors):
+		for room_data in floors[fi]:
+			var from_pos: Vector3 = _marker_pos.get(room_data["id"], Vector3.ZERO)
+			for cid in room_data.get("children", []):
+				var to_pos: Vector3 = _marker_pos.get(cid, Vector3.ZERO)
+				if to_pos != Vector3.ZERO:
+					_draw_edge(from_pos, to_pos)
 
 	_add_board(total_floors, max_rooms_in_floor, bottom_left)
 	_refresh_markers()
@@ -105,70 +113,48 @@ func _create_marker(room_data: Dictionary, pos: Vector3) -> void:
 	var mesh := MeshInstance3D.new()
 	mesh.name = "Mesh"
 	var room_type: int = room_data["type"]
-	match room_type:
-		RoomManager.RoomType.BOSS:
-			mesh.mesh = _make_diamond_mesh()
-		_:
-			var bm := BoxMesh.new()
-			bm.size = Vector3(MARKER_SIZE, MARKER_SIZE, MARKER_SIZE)
-			mesh.mesh = bm
+	if room_type == RoomManager.RoomType.BOSS:
+		mesh.mesh = _make_diamond_mesh()
+	else:
+		var bm := BoxMesh.new()
+		bm.size = Vector3(MARKER_SIZE, MARKER_SIZE, MARKER_SIZE)
+		mesh.mesh = bm
 	mesh.material_override = _room_material(room_data, RoomMarkerState.INACTIVE)
 	marker_root.add_child(mesh)
-
-	var body := StaticBody3D.new()
-	body.name = "Body"
-	body.collision_layer = 1
-	body.collision_mask = 0
-	body.input_ray_pickable = true
-	body.input_event.connect(_on_marker_clicked.bind(room_data["id"]))
-	marker_root.add_child(body)
-
-	var col := CollisionShape3D.new()
-	var shape := BoxShape3D.new()
-	shape.size = Vector3(MARKER_SIZE * 2.5, MARKER_SIZE * 2.5, MARKER_SIZE * 2.5)
-	col.shape = shape
-	body.add_child(col)
 
 	_markers.append({
 		"id": room_data["id"],
 		"type": room_data["type"],
 		"floor": room_data["floor"],
-		"node": marker_root,
 		"mesh": mesh,
-		"body": body,
 		"state": RoomMarkerState.INACTIVE,
 	})
 
 
-func _draw_connections(from_rooms: Array, to_rooms: Array, floor_idx: int, origin: Vector3) -> void:
-	for fi in range(from_rooms.size()):
-		var fx := origin.x + floor_idx * FLOOR_SPACING
-		var fy := origin.y - fi * ROOM_SPACING
-		for ti in range(to_rooms.size()):
-			var tx := origin.x + (floor_idx + 1) * FLOOR_SPACING
-			var ty := origin.y - ti * ROOM_SPACING
-			var mid := Vector3((fx + tx) / 2.0, (fy + ty) / 2.0, origin.z)
-			var dx := tx - fx
-			var dy := ty - fy
-			var length := sqrt(dx * dx + dy * dy)
-			var line_mesh := MeshInstance3D.new()
-			line_mesh.name = "Line_%d_%d_to_%d" % [floor_idx, fi, ti]
-			var box := BoxMesh.new()
-			box.size = Vector3(length, 0.015, 0.01)
-			line_mesh.mesh = box
-			var mat := StandardMaterial3D.new()
-			mat.albedo_color = Color(0.3, 0.3, 0.35, 0.6)
-			mat.emission_enabled = true
-			mat.emission = Color(0.15, 0.15, 0.2)
-			mat.emission_energy_multiplier = 0.5
-			line_mesh.material_override = mat
-			line_mesh.position = mid
-			var angle := atan2(dy, dx)
-			line_mesh.rotation_degrees = Vector3(0, 0, rad_to_deg(angle))
-			add_child(line_mesh)
+func _draw_edge(from_pos: Vector3, to_pos: Vector3) -> void:
+	var mid := (from_pos + to_pos) / 2.0
+	var d := to_pos - from_pos
+	var length := Vector2(d.x, d.y).length()
+	if length < 0.001:
+		return
+	var line_mesh := MeshInstance3D.new()
+	line_mesh.name = "Edge"
+	var box := BoxMesh.new()
+	box.size = Vector3(length, 0.012, 0.008)
+	line_mesh.mesh = box
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.3, 0.3, 0.35, 0.6)
+	mat.emission_enabled = true
+	mat.emission = Color(0.15, 0.15, 0.2)
+	mat.emission_energy_multiplier = 0.5
+	line_mesh.material_override = mat
+	line_mesh.position = mid
+	line_mesh.rotation_degrees = Vector3(0, 0, rad_to_deg(atan2(d.y, d.x)))
+	add_child(line_mesh)
 
 
 enum RoomMarkerState { INACTIVE, CURRENT, SELECTABLE, VISITED }
+
 
 func _room_material(room_data: Dictionary, state: RoomMarkerState) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
@@ -223,10 +209,7 @@ func _refresh_markers() -> void:
 			return
 
 	var current_id := RoomManager.current_room_id
-	var current_floor := RoomManager.current_floor
-
 	for marker in _markers:
-		var mfloor: int = marker["floor"]
 		var mid: String = marker["id"]
 		var state: RoomMarkerState
 
@@ -234,7 +217,7 @@ func _refresh_markers() -> void:
 			state = RoomMarkerState.CURRENT
 		elif RoomManager.is_room_visited(mid):
 			state = RoomMarkerState.VISITED
-		elif mfloor == current_floor + 1 and current_id != "" and RoomManager.is_room_visited(current_id):
+		elif current_id != "" and mid in RoomManager.get_room_by_id(current_id).get("children", []):
 			state = RoomMarkerState.SELECTABLE
 		else:
 			state = RoomMarkerState.INACTIVE
@@ -242,26 +225,7 @@ func _refresh_markers() -> void:
 		if state != marker["state"]:
 			marker["state"] = state
 			var mesh: MeshInstance3D = marker["mesh"]
-			var body: StaticBody3D = marker["body"]
-			var room_data := {"type": marker["type"]}
-			mesh.material_override = _room_material(room_data, state)
-			body.input_ray_pickable = (state == RoomMarkerState.SELECTABLE)
-
-
-func _on_marker_clicked(_camera: Node, event: InputEvent, _pos: Vector3, _normal: Vector3, _shape_idx: int, room_id: String) -> void:
-	if not event is InputEventMouseButton:
-		return
-	if not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
-		return
-
-	for marker in _markers:
-		if marker["id"] == room_id and marker["state"] == RoomMarkerState.SELECTABLE:
-			_select_room(room_id)
-			return
-
-
-func _select_room(room_id: String) -> void:
-	RoomManager.request_select_room(room_id)
+			mesh.material_override = _room_material({"type": marker["type"]}, state)
 
 
 func _make_diamond_mesh() -> ArrayMesh:

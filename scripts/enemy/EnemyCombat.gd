@@ -41,13 +41,28 @@ func can_attack() -> bool:
 	return phase == AttackPhase.IDLE and cooldown_left <= 0.0
 
 
+## True if `tgt` is alive and within the enemy's melee range, checked before a
+## wind-up starts. Enemies never begin an attack against a target that is out of
+## range.
+func _target_in_attack_range(tgt: Node3D) -> bool:
+	if tgt == null or not is_instance_valid(tgt):
+		return false
+	return _horizontal_distance(tgt) <= enemy.attack_range
+
+
 ## True if `tgt` is a valid damageable node still within reach when the swing
 ## connects. Prevents locked-on attacks from hitting players who dodged away
 ## during the TELL wind-up.
 func _target_in_range(tgt: Node3D) -> bool:
 	if tgt == null or not is_instance_valid(tgt) or not tgt.has_method("take_damage"):
 		return false
-	return enemy.global_position.distance_to(tgt.global_position) <= STRIKE_RANGE
+	return _horizontal_distance(tgt) <= STRIKE_RANGE
+
+
+func _horizontal_distance(tgt: Node3D) -> float:
+	var to := tgt.global_position - enemy.global_position
+	to.y = 0.0
+	return to.length()
 
 
 func _resolve_swing_poses() -> void:
@@ -82,7 +97,7 @@ func process_attack(delta: float, tgt: Node3D) -> void:
 
 	match phase:
 		AttackPhase.IDLE:
-			if cooldown_left <= 0.0 and tgt != null:
+			if cooldown_left <= 0.0 and _target_in_attack_range(tgt):
 				phase = AttackPhase.TELL
 				phase_timer = TELL_DURATION
 				target = tgt

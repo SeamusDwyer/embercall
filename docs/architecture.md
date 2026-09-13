@@ -6,34 +6,34 @@
 Main.gd (root scene)
 │
 ├── UI/MenuPanel                 host/join buttons, IP field
-├── Arena.gd
-│   ├── PlayerRoot/              spawned by Net
-│   │   └── Player (body)
-│   │       ├── IgniteStatus     burn state, ticks, spread
-│   │       ├── PlayerMovement   WASD/jump/sprint, footstep pings
-│   │       ├── PlayerCamera     mouse look, settings toggle
-│   │       ├── PlayerCombat     swing phase machine, hit detection → Ignite stacks
-│   │       ├── PlayerHealth     damage → _sync_health, _on_death
-│   │       └── PlayerStamina    sprint drain, attack cost, regen (authority peer)
-│   │       └── CameraPivot
-│   │           ├── WeaponPivot  spring-driven weapon transform
-│   │           │   └── hammer   real weapon mesh
-│   │           └── Swings/      ghost keyframe poses (editor authoring)
-│   │               └── SwingN/{Anticipation, Final}
-│   │
-│   ├── Enemies/
-│   │   └── Enemy (body)
-│   │       ├── IgniteStatus     same component, separate instance
-│   │       ├── EnemyMovement    chase nearest player, growl pings
-│   │       ├── EnemyCombat      TELL→SWING→RECOVERY machine + spring-driven weapon swing
-│   │       ├── EnemyHealth      damage → _sync_health, _die
-│   │       └── HealthBar3D      world-space billboarded health bar
-│   │
-│   ├── Props/                   FlammableProp (crates etc.)
-│   │   ├── IgniteStatus         catches fire from spread
-│   │   └── HazardArea           burning prop ignites bodies on contact
-│   │
-│   └── ExitZone                 unlocks when enemy dies; run complete on enter
+├── World.gd
+│   ├── Ground                   single walkable collider under the dungeon
+│   ├── Corridors/               box meshes linking adjacent floors
+│   ├── Map3D.gd                 reference wall board (view-only)
+│   └── Room_r_* (Room.gd)       one per generated room, laid out on a grid
+│       ├── Wall/Floor/ gates    procedural geometry + door gaps
+│       ├── EntryGate/ExitGate_* (Door.gd)  gate + RoomSymbol emblem
+│       ├── ActivationArea       first-entry detection
+│       └── Enemies/             Enemy bodies (spawned on activation)
+│           └── Enemy (body)
+│               ├── IgniteStatus same component, separate instance
+│               ├── EnemyMovement  chase nearest player, growl pings
+│               ├── EnemyCombat    TELL→SWING→RECOVERY + spring-driven swing
+│               ├── EnemyHealth    damage → _sync_health, _die
+│               └── HealthBar3D    world-space billboarded health bar
+├── PlayerRoot/                  spawned by Net (persistent across rooms)
+│   └── Player (body)
+│       ├── IgniteStatus         burn state, ticks, spread
+│       ├── PlayerMovement       WASD/jump/sprint, footstep pings
+│       ├── PlayerCamera         mouse look, settings toggle
+│       ├── PlayerCombat         swing phase machine, hit detection → Ignite stacks
+│       ├── PlayerHealth         damage → _sync_health, _on_death
+│       ├── PlayerStamina        sprint drain, attack cost, regen (authority peer)
+│       └── CameraPivot
+│           ├── WeaponPivot      spring-driven weapon transform
+│           │   └── hammer       real weapon mesh
+│           └── Swings/          ghost keyframe poses (editor authoring)
+│               └── SwingN/{Anticipation, Final}
 │
 └── Autopilot.gd                 scripted bot for headless CI tests
 ```
@@ -156,14 +156,14 @@ Host (peer 1)                          Client (peer 2+)
 ────────────                           ────────────
 Server authority:                       Authority: own Player
   enemy AI, Ignite ticks,               Input → RPCs to server
-  Radar pings, health, arena            HUD reads local Radar signal
-  state, exit unlock                    Remote players: interpolated
+  Radar pings, health, room/gate        HUD reads local Radar signal
+  state, door traversal                 Remote players: interpolated
                                         Enemy/Ignite: synced via
 Replicates to all:                      MultiplayerSynchronizer
   Player positions (MultiplayerSync)
   Enemy health, death (RPCs)
   Ignite stacks (MultiplayerSync)
-  Arena state (RPCs)
+  Room/gate state (RPCs)
 ```
 
 ## File layout
@@ -171,7 +171,12 @@ Replicates to all:                      MultiplayerSynchronizer
 ```
 scripts/
 ├── Main.gd                    root scene: menu + CLI flags (autopilot, autojoin, steam)
-├── Arena.gd                   run loop: enemy death → exit unlock → run complete
+├── World.gd                   dungeon layout: rooms, corridors, ground, map
+├── Room.gd                    one physical room: geometry, gates, encounter contents
+├── Door.gd                    gated doorway (gate + airlock) with RoomSymbol emblem
+├── RoomSymbol.gd              3D emblem above an exit door (room type indicator)
+├── RoomManager.gd             autoload: map generation (edges), run state, scaling
+├── Map3D.gd                   reference wall board (view-only, draws child edges)
 ├── Player.gd                  thin wrapper; movement/camera/combat/health + swing poses
 ├── Enemy.gd                   thin wrapper, instantiates movement/combat/health
 ├── IgniteStatus.gd            reusable burn component (stacks, ticks, spread)
@@ -201,15 +206,14 @@ scripts/
     └── LobbyManager.gd        Steam lobby lifecycle (not yet wired into Main)
 
 scenes/
-├── Main.tscn                  root: UI + Arena
-├── Arena.tscn                 walled room, enemy, 3 props, exit zone
+├── Main.tscn                  root: UI + World + PlayerRoot
 ├── Player.tscn                body + IgniteStatus + WeaponPivot/hammer + Swings ghost poses
 ├── Enemy.tscn                 CharacterBody3D + IgniteStatus + MultiplayerSynchronizer
 ├── FlammableProp.tscn         Node3D + IgniteStatus + fire VFX + hazard area
 └── HUD.tscn                   CanvasLayer with health bar, radar display, settings
 
 tests/
-├── Autopilot.gd               scripted bot: seek enemy → attack → enter exit
+├── Autopilot.gd               scripted bot: clear room → walk through open door
 ├── run_multiplayer_test.sh    bash: host + join two processes, assert PASS
 └── unit/
     ├── test_ignite_status.gd  GUT: stack application, tick damage, extinguish

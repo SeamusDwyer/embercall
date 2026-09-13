@@ -45,6 +45,8 @@ See [docs/architecture.md](docs/architecture.md) for component diagram and data 
 |-------------|---------------------------------|--------------------------------------------------|
 | `Net`       | `scripts/NetworkManager.gd`     | ENet host/join, player spawning, RPC authority |
 | `Radar`     | `scripts/Radar.gd`              | Server-authoritative audio pings → client HUD |
+| `RoomManager` | `scripts/RoomManager.gd`      | Map generation (rooms + edges), run state, scaling |
+| `GameState` | `scripts/GameState.gd`          | Agent harness: snapshot/query game state for tests |
 | `DebugShapes` | `scripts/DebugShapes.gd`     | Toggleable hitbox/impact visualization        |
 
 ## Code conventions
@@ -61,3 +63,4 @@ See [docs/architecture.md](docs/architecture.md) for component diagram and data 
 |-------------------------------|---------------------|
 | `plans/death-respawn.md`      | Not yet implemented |
 | `plans/steam-multiplayer.md`  | Partially implemented (stubs exist) |
+| `plans/room-map-progression.md` | Implemented — persistent connected rooms + gated doors |

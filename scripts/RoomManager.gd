@@ -8,6 +8,10 @@ enum RoomType { COMBAT, CHEST, EVENT, SHOP, BOSS }
 const FLOORS_PER_ACT := 8
 const MAX_ROOMS_PER_FLOOR := 3
 
+## Chance an interior target inside a source room's contiguous range is kept.
+## The first floor is always fully connected so the run starts with 2-3 choices.
+const EDGE_DENSITY := 0.65
+
 signal map_generated(act_data: Dictionary)
 signal room_cleared(room_id: String)
 signal room_selected(room_id: String)
@@ -103,6 +107,76 @@ func _generate_all_acts() -> void:
 	for act in range(1, 4):
 		var act_data := _generate_act(act)
 		acts.append(act_data)
+	_generate_all_edges()
+
+
+## Builds the non-crossing layered DAG. Floors are connected to the next floor
+## (and the last floor of each act to the next act's start). Same-floor rooms are
+## never connected. Edges between two floors never cross: a source's targets form
+## a contiguous, monotonically advancing range of slots.
+func _generate_all_edges() -> void:
+	for act_data in acts:
+		for floor_rooms in act_data["floors"]:
+			for room in floor_rooms:
+				room["children"] = []
+				room["parents"] = []
+
+	for ai in range(acts.size()):
+		var floors: Array = acts[ai]["floors"]
+		for fi in range(floors.size() - 1):
+			# The opening fan is always full so the run starts with choices.
+			var density := 1.0 if fi == 0 else EDGE_DENSITY
+			_generate_edges(floors[fi], floors[fi + 1], density)
+		# Chain the post-boss chest into the next act's start room.
+		if ai + 1 < acts.size():
+			_generate_edges(floors[floors.size() - 1], acts[ai + 1]["floors"][0], 1.0)
+
+
+func _generate_edges(sources: Array, targets: Array, density: float) -> void:
+	if sources.is_empty() or targets.is_empty():
+		return
+	var cursor := 0
+	for si in range(sources.size()):
+		var source: Dictionary = sources[si]
+		var lo := cursor
+		var hi: int
+		if si == sources.size() - 1:
+			hi = targets.size() - 1
+		else:
+			hi = randi_range(lo, targets.size() - 1)
+
+		var children: Array = []
+		for t in range(lo, hi + 1):
+			if t == hi or randf() < density:
+				children.append(targets[t]["id"])
+		if children.is_empty():
+			children.append(targets[hi]["id"])
+		source["children"] = children
+		for cid in children:
+			_add_parent(cid, source["id"])
+		cursor = hi
+
+	# Guarantee no orphan targets (every room is reachable).
+	for target in targets:
+		if target.get("parents", []).is_empty():
+			var last_source: Dictionary = sources[sources.size() - 1]
+			last_source["children"].append(target["id"])
+			target["parents"].append(last_source["id"])
+
+
+func _add_parent(room_id: String, parent_id: String) -> void:
+	var room := get_room_by_id(room_id)
+	if not room.is_empty() and not parent_id in room["parents"]:
+		room["parents"].append(parent_id)
+
+
+func get_room_by_id(room_id: String) -> Dictionary:
+	for act_data in acts:
+		for floor_rooms in act_data["floors"]:
+			for room in floor_rooms:
+				if room["id"] == room_id:
+					return room
+	return {}
 
 
 func _generate_act(act_num: int) -> Dictionary:
@@ -144,7 +218,9 @@ func _make_room(act: int, floor: int, slot: int, type: RoomType) -> Dictionary:
 		"floor": floor,
 		"slot": slot,
 		"encounter_id": encounter_id,
-		"encounter": encounter_data
+		"encounter": encounter_data,
+		"children": [],
+		"parents": []
 	}
 
 
@@ -178,16 +254,21 @@ func get_current_room() -> Dictionary:
 
 
 func get_available_choices() -> Array[Dictionary]:
-	"""Returns rooms on the next floor that are available to choose."""
+	"""Returns the current room's children — the rooms reachable through its doors."""
 	var choices: Array[Dictionary] = []
-	var ad := get_act_data()
-	if ad.is_empty():
+	var current := get_current_room()
+	if current.is_empty():
 		return choices
-	var floors: Array = ad["floors"]
-	var next_floor := current_floor + 1
-	if next_floor >= floors.size():
-		return choices
-	return floors[next_floor].duplicate(true)
+	for cid in current.get("children", []):
+		var room := get_room_by_id(cid)
+		if not room.is_empty():
+			choices.append(room)
+	return choices
+
+
+## Player physically entered a room through a door.
+func enter_room(room_id: String) -> void:
+	request_select_room(room_id)
 
 
 func request_select_room(room_id: String) -> void:
@@ -222,6 +303,7 @@ func _sync_select_room(room_id: String) -> void:
 
 func _do_select_room(room_id: String) -> void:
 	current_room_id = room_id
+	current_act = _room_act(room_id)
 	current_floor = _room_floor(room_id)
 	room_selected.emit(room_id)
 
@@ -325,6 +407,13 @@ func _room_floor(room_id: String) -> int:
 	if parts.size() >= 3:
 		return int(parts[2])
 	return 0
+
+
+func _room_act(room_id: String) -> int:
+	var parts := room_id.split("_")
+	if parts.size() >= 3:
+		return int(parts[1])
+	return current_act
 
 
 func get_enemy_count(act: int, floor: int) -> int:

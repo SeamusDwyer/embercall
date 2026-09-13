@@ -32,10 +32,11 @@ signal exit_triggered()
 # -- Internal bookkeeping --
 
 var _previous_snapshot: Dictionary = {}
-var _arena: Node3D = null
+var _world: Node3D = null
 var _tracked_enemies: Dictionary = {}  # enemy_name -> WeakRef
 var _hooked_players: Dictionary = {}  # pid -> true
 var _hooked_enemies: Dictionary = {}  # ename -> true
+var _hooked_rooms: Dictionary = {}    # room_id -> true
 var _run_started: bool = false
 
 
@@ -78,7 +79,8 @@ func _snapshot_run() -> Dictionary:
 
 
 func _snapshot_arena() -> Dictionary:
-	if _arena == null:
+	var room := _current_room()
+	if room == null:
 		return {}
 	var alive := 0
 	var total := 0
@@ -92,9 +94,17 @@ func _snapshot_arena() -> Dictionary:
 	return {
 		"enemies_alive": alive,
 		"enemies_total": total,
-		"room_cleared": _arena.get("_room_cleared") if _arena else false,
-		"exit_unlocked": _arena.is_exit_unlocked() if _arena.has_method("is_exit_unlocked") else false
+		"room_cleared": room.is_cleared(),
+		"exit_unlocked": room.is_exit_unlocked()
 	}
+
+
+func _current_room() -> Room:
+	if _world == null:
+		_ensure_arena()
+	if _world == null:
+		return null
+	return _world.get_current_room()
 
 
 func _snapshot_players() -> Dictionary:
@@ -231,29 +241,39 @@ func _connect_arena() -> void:
 	var main := get_tree().get_root().get_node_or_null("Main")
 	if not main:
 		return
-	_arena = main.get_node_or_null("Arena")
-	if _arena == null:
+	_world = main.get_node_or_null("World")
+	if _world == null:
 		return
-	if not _arena.exit_triggered.is_connected(_on_arena_exit):
-		_arena.exit_triggered.connect(_on_arena_exit)
-	if _arena.has_signal("enemy_spawned"):
-		if not _arena.enemy_spawned.is_connected(_on_enemy_spawned):
-			_arena.enemy_spawned.connect(_on_enemy_spawned)
-		var enemies_root := _arena.get_node_or_null("Enemies")
-		if enemies_root:
-			for child in enemies_root.get_children():
-				if child is Enemy:
-					_hook_enemy(child)
+	if _world.has_signal("room_entered") and not _world.room_entered.is_connected(_on_arena_exit):
+		_world.room_entered.connect(_on_arena_exit)
+	_refresh_room_hooks()
+
+
+func _refresh_room_hooks() -> void:
+	if _world == null:
+		return
+	var rooms: Dictionary = _world.get("rooms")
+	for rid in rooms:
+		if _hooked_rooms.has(rid):
+			continue
+		var room: Room = rooms[rid]
+		if not is_instance_valid(room):
+			continue
+		_hooked_rooms[rid] = true
+		if room.has_signal("enemy_spawned") and not room.enemy_spawned.is_connected(_on_enemy_spawned):
+			room.enemy_spawned.connect(_on_enemy_spawned)
 
 
 func _ensure_arena() -> void:
-	if _arena == null:
+	if _world == null:
 		_connect_arena()
+	else:
+		_refresh_room_hooks()
 
 
 func _get_arena() -> Node3D:
 	_ensure_arena()
-	return _arena
+	return _world
 
 
 # -- Entity hook methods --
@@ -322,7 +342,7 @@ func _on_enemy_died_signal(ename: String) -> void:
 	enemy_died.emit(ename)
 
 
-func _on_arena_exit() -> void:
+func _on_arena_exit(_room_id: String = "") -> void:
 	exit_triggered.emit()
 
 

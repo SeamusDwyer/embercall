@@ -1,6 +1,6 @@
 extends Node
 ## Root scene script. Hosts/joins games, manages room progression,
-## and wires the Arena to the RoomManager for the roguelike loop.
+## and wires the World to the RoomManager for the roguelike loop.
 
 const AUTOPILOT_SCENE := preload("res://tests/Autopilot.gd")
 
@@ -9,7 +9,7 @@ const AUTOPILOT_SCENE := preload("res://tests/Autopilot.gd")
 @onready var host_btn: Button = $UI/MenuPanel/VBox/HostButton
 @onready var join_btn: Button = $UI/MenuPanel/VBox/JoinButton
 @onready var status_label: Label = $UI/MenuPanel/VBox/StatusLabel
-@onready var arena: Node3D = $Arena
+@onready var world: Node3D = $World
 
 var _run_started := false
 var _autopilot: Node = null
@@ -61,29 +61,10 @@ func _start_run() -> void:
 	_run_started = true
 
 	RoomManager.start_run()
-	if not arena.exit_triggered.is_connected(_on_arena_exit):
-		arena.exit_triggered.connect(_on_arena_exit)
-	RoomManager.run_complete.connect(_on_run_complete)
-
-	var first_room := RoomManager.begin_first_room()
-	if not first_room.is_empty():
-		arena.configure(first_room)
-
-
-func _on_arena_exit() -> void:
-	if is_instance_valid(_autopilot):
-		_autopilot.notify_exit_fired()
-
-	if RoomManager.get_available_choices().is_empty():
-		var act_room := RoomManager.start_next_act()
-		if act_room.is_empty():
-			_on_run_complete()
-			return
-		arena.configure(act_room)
-	else:
-		var next_room := RoomManager.get_current_room()
-		if not next_room.is_empty():
-			arena.configure(next_room)
+	RoomManager.begin_first_room()
+	world.build_run()
+	if not world.run_complete.is_connected(_on_run_complete):
+		world.run_complete.connect(_on_run_complete)
 
 
 func _on_run_complete() -> void:
@@ -125,22 +106,13 @@ func _on_autopilot_player_spawned() -> void:
 	autopilot.name = "Autopilot"
 	_autopilot = autopilot
 	add_child.call_deferred(autopilot)
-	autopilot.setup(player, arena)
+	autopilot.setup(player, world)
 
 	Net.player_list_changed.disconnect(_on_autopilot_player_spawned)
 
 
 func _ensure_run_started() -> void:
-	if _run_started:
-		return
-	RoomManager.start_run()
-	if not arena.exit_triggered.is_connected(_on_arena_exit):
-		arena.exit_triggered.connect(_on_arena_exit)
-	RoomManager.run_complete.connect(_on_run_complete)
-	var first_room := RoomManager.begin_first_room()
-	if not first_room.is_empty():
-		arena.configure(first_room)
-	_run_started = true
+	_start_run()
 
 
 func _start_autojoin(args: Array) -> void:

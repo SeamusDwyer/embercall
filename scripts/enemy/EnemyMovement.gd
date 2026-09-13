@@ -5,7 +5,6 @@ class_name EnemyMovement
 var enemy: Enemy
 
 const SPEED := 3.0
-const ATTACK_RANGE := 1.6
 const GROWL_INTERVAL := 4.0
 
 var knockback_velocity: Vector3 = Vector3.ZERO
@@ -39,7 +38,7 @@ func apply_physics(delta: float) -> Node3D:
 	to_target.y = 0
 	var dist := to_target.length()
 
-	if dist > ATTACK_RANGE:
+	if dist > enemy.attack_range:
 		var dir := to_target.normalized()
 		var spd: float = enemy.move_speed if "move_speed" in enemy else SPEED
 		enemy.velocity.x = dir.x * spd

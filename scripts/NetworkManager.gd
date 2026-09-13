@@ -217,14 +217,14 @@ func _spawn_player(peer_id: int) -> void:
 
 @rpc("authority", "call_local", "reliable")
 func _do_spawn_player(peer_id: int, spawn_pos: Vector3) -> void:
-	var arena := get_tree().get_root().get_node_or_null("Main/Arena")
-	print("[SPAWN] peer_id=%d, arena=%s" % [peer_id, arena])
-	if arena == null:
+	var player_root := get_tree().get_root().get_node_or_null("Main/PlayerRoot")
+	print("[SPAWN] peer_id=%d, player_root=%s" % [peer_id, player_root])
+	if player_root == null:
 		return
 	var player := PLAYER_SCENE.instantiate()
 	player.name = str(peer_id)
 	player.set_multiplayer_authority(peer_id)
-	arena.get_node("PlayerRoot").add_child(player)
+	player_root.add_child(player)
 	player.global_position = spawn_pos
 	players[peer_id] = player
 	print("[SPAWN] player=%s added, players=%d" % [player, players.size()])
@@ -244,6 +244,6 @@ func replay_state_to_peer(peer_id: int) -> void:
 
 	RoomManager.sync_to_peer(peer_id)
 
-	var arena := get_tree().get_root().get_node_or_null("Main/Arena")
-	if arena and arena.has_method("_sync_arena_state"):
-		arena._sync_arena_state.rpc_id(peer_id)
+	var world := get_tree().get_root().get_node_or_null("Main/World")
+	if world and world.has_method("replay_to_peer"):
+		world.replay_to_peer(peer_id)
