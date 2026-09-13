@@ -7,14 +7,27 @@ var pivot: Node3D
 var camera: Camera3D
 
 const SENSITIVITY := 0.0025
+const FOV_LERP_SPEED := 8.0
+
+var base_fov: float = 66.0
+var sprint_fov_boost: float = 6.0
 
 var _captured: bool = false
 
 
-func setup(p: CharacterBody3D, piv: Node3D, cam: Camera3D) -> void:
+func setup(p: CharacterBody3D, piv: Node3D, cam: Camera3D, sprint_boost: float = 6.0) -> void:
 	player = p
 	pivot = piv
 	camera = cam
+	base_fov = cam.fov
+	sprint_fov_boost = sprint_boost
+
+
+func process(delta: float, sprinting: bool) -> void:
+	if not camera:
+		return
+	var target: float = base_fov + (sprint_fov_boost if sprinting else 0.0)
+	camera.fov = lerpf(camera.fov, target, clampf(delta * FOV_LERP_SPEED, 0.0, 1.0))
 
 
 func capture() -> void:

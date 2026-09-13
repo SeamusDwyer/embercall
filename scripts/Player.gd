@@ -3,6 +3,10 @@ extends CharacterBody3D
 @export var max_health: float = 100.0
 var health: float = 100.0
 
+@export_category("Movement")
+@export var sprint_multiplier: float = 1.6
+@export var sprint_fov_boost: float = 6.0
+
 @export_category("Weapon")
 @export var weapon_pivot_path: NodePath = ^"CameraPivot/WeaponPivot"
 @export var swings: Array[NodePath] = [
@@ -29,12 +33,14 @@ var health: float = 100.0
 var autopilot: bool = false
 var scripted_move_dir: Vector3 = Vector3.ZERO
 var scripted_attack_requested: bool = false
+var scripted_sprint: bool = false
 
 var _movement: PlayerMovement
 var _camera: PlayerCamera
 var _combat: PlayerCombat
 var _health: PlayerHealth
 var _swings: Array[Node3D] = []
+var _sprinting: bool = false
 
 
 func _ready() -> void:
@@ -42,11 +48,11 @@ func _ready() -> void:
 
 	_movement = PlayerMovement.new()
 	add_child(_movement)
-	_movement.setup(self)
+	_movement.setup(self, sprint_multiplier)
 
 	_camera = PlayerCamera.new()
 	add_child(_camera)
-	_camera.setup(self, camera_pivot, camera)
+	_camera.setup(self, camera_pivot, camera, sprint_fov_boost)
 
 	_resolve_swings()
 	_update_ghost_visibility()
@@ -105,7 +111,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	var is_auth := is_multiplayer_authority()
 
-	_movement.apply_physics(delta, is_auth, autopilot, scripted_move_dir)
+	_sprinting = is_auth and (scripted_sprint if autopilot else Input.is_action_pressed("sprint"))
+	_movement.apply_physics(delta, is_auth, autopilot, scripted_move_dir, _sprinting)
 	_combat.process(delta)
 
 	if not is_auth:
@@ -124,6 +131,8 @@ func _physics_process(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	_combat.process_visual(delta)
+	var moving := Vector2(velocity.x, velocity.z).length() > 0.1
+	_camera.process(delta, _sprinting and moving)
 
 
 # -- RPCs (must live on authority node) --
@@ -146,13 +155,13 @@ func _request_ping(pos: Vector3, tag: String, strength: float) -> void:
 		Radar.emit_ping(pos, tag, strength)
 
 
-func take_damage(amount: float) -> void:
-	_health.take_damage(amount)
+func take_damage(amount: float, reason: String = DamageLog.REASON_UNKNOWN, source: Node = null) -> void:
+	_health.take_damage(amount, reason, source)
 
 
 @rpc("any_peer", "call_local", "reliable")
-func _sync_health(new_health: float) -> void:
-	_health.sync_hp(new_health, hud)
+func _sync_health(new_health: float, reason: String = "", source_name: String = "", amount: float = 0.0) -> void:
+	_health.sync_hp(new_health, hud, reason, source_name, amount)
 
 
 @rpc("any_peer", "call_local", "reliable")

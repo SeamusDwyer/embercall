@@ -8,8 +8,12 @@ const SPEED := 5.0
 const JUMP_HEIGHT := 1.2
 const GRAVITY := 18.0
 const FOOTSTEP_INTERVAL := 2.5
+const FOOTSTEP_STRENGTH := 6.0
+const SPRINT_FOOTSTEP_STRENGTH := 9.0
 const INTERP_SPEED := 20.0
 const SNAP_DISTANCE := 2.0
+
+var sprint_multiplier: float = 1.6
 
 var _footstep_accum: float = 0.0
 var _interp_from: Vector3 = Vector3.ZERO
@@ -18,8 +22,9 @@ var _interp_progress: float = 0.0
 var _has_received_sync: bool = false
 
 
-func setup(p: CharacterBody3D) -> void:
+func setup(p: CharacterBody3D, sprint_mult: float = 1.6) -> void:
 	player = p
+	sprint_multiplier = sprint_mult
 
 
 func init_remote_sync() -> void:
@@ -28,7 +33,7 @@ func init_remote_sync() -> void:
 		sync.synchronized.connect(_on_sync_received)
 
 
-func apply_physics(delta: float, is_authority: bool, autopilot: bool, move_dir: Vector3) -> void:
+func apply_physics(delta: float, is_authority: bool, autopilot: bool, move_dir: Vector3, sprint: bool = false) -> void:
 	if not is_authority:
 		_apply_remote(delta)
 		return
@@ -48,16 +53,19 @@ func apply_physics(delta: float, is_authority: bool, autopilot: bool, move_dir: 
 		)
 		direction = (player.transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
 
+	var move_speed := SPEED * (sprint_multiplier if sprint else 1.0)
+
 	if direction.length() > 0.01:
-		player.velocity.x = direction.x * SPEED
-		player.velocity.z = direction.z * SPEED
-		_footstep_accum += SPEED * delta
+		player.velocity.x = direction.x * move_speed
+		player.velocity.z = direction.z * move_speed
+		_footstep_accum += move_speed * delta
 		if _footstep_accum > FOOTSTEP_INTERVAL:
 			_footstep_accum = 0.0
-			player.rpc_id(1, &"_request_ping", player.global_position, "footstep", 6.0)
+			var strength := SPRINT_FOOTSTEP_STRENGTH if sprint else FOOTSTEP_STRENGTH
+			player.rpc_id(1, &"_request_ping", player.global_position, "footstep", strength)
 	else:
-		player.velocity.x = move_toward(player.velocity.x, 0, SPEED)
-		player.velocity.z = move_toward(player.velocity.z, 0, SPEED)
+		player.velocity.x = move_toward(player.velocity.x, 0, move_speed)
+		player.velocity.z = move_toward(player.velocity.z, 0, move_speed)
 
 	player.move_and_slide()
 

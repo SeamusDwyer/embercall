@@ -16,8 +16,8 @@ environment). Everything else is deliberately bare-bones.
 3. Click **Host** in one instance. Run a second instance (Godot lets you run
    the same project multiple times via the debug menu, or export two
    builds) and click **Join** with `127.0.0.1`.
-4. Controls: **WASD** move, **mouse** look, **Space** jump, **left click**
-   melee attack, **Esc** toggle mouse capture.
+4. Controls: **WASD** move, **mouse** look, **Space** jump, **Shift** sprint,
+   **left click** melee attack, **Esc** toggle mouse capture.
 
 ## What's actually implemented
 - **Networking**: `NetworkManager.gd` (autoload `Net`) — ENet host/join,
@@ -35,6 +35,10 @@ environment). Everything else is deliberately bare-bones.
 - **One enemy type** (`Enemy.gd`): chases the nearest player, melee-attacks
   in range, growls periodically (radar ping), can catch fire and burn to
   death from Ignite ticks.
+- **Damage log** (`DamageLog.gd`, autoload): every hit a player takes is
+  tagged with a reason (`enemy_melee`, `player_melee`, `burning`) and source,
+  printed to console, and shown in a toggleable HUD panel (Settings → "Show
+  Damage Log").
 - **One arena, one full loop** (`Arena.gd` + `Arena.tscn`): walled room,
   three flammable props, one enemy, an ExitZone that unlocks once the enemy
   dies and ends the "run" when a player walks into it.

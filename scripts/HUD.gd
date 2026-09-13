@@ -12,11 +12,14 @@ const RADAR_RADIUS := 90.0
 @onready var radar_display: Control = $Root/RadarDisplay
 @onready var death_label: Label = $Root/DeathLabel
 @onready var ignite_label: Label = $Root/IgniteLabel
+@onready var damage_log_panel: Panel = $Root/DamageLogPanel
+@onready var damage_log_label: Label = $Root/DamageLogPanel/DamageLogLabel
 @onready var settings_panel: Panel = $Root/SettingsPanel
 @onready var res_option: OptionButton = $Root/SettingsPanel/SettingsVBox/ResHBox/ResOption
 @onready var vsync_check: CheckButton = $Root/SettingsPanel/SettingsVBox/VsyncHBox/VsyncCheck
 @onready var hitbox_check: CheckButton = $Root/SettingsPanel/SettingsVBox/HitboxHBox/HitboxCheck
 @onready var impact_check: CheckButton = $Root/SettingsPanel/SettingsVBox/ImpactHBox/ImpactCheck
+@onready var log_check: CheckButton = $Root/SettingsPanel/SettingsVBox/LogHBox/LogCheck
 @onready var resume_btn: Button = $Root/SettingsPanel/SettingsVBox/ResumeButton
 @onready var quit_btn: Button = $Root/SettingsPanel/SettingsVBox/QuitButton
 
@@ -40,6 +43,8 @@ func _ready() -> void:
 	vsync_check.toggled.connect(_on_vsync_toggled)
 	hitbox_check.toggled.connect(_on_hitbox_toggled)
 	impact_check.toggled.connect(_on_impact_toggled)
+	log_check.toggled.connect(_on_log_toggled)
+	DamageLog.logged.connect(_on_damage_logged)
 	resume_btn.pressed.connect(_on_resume_pressed)
 	quit_btn.pressed.connect(_on_quit_pressed)
 	set_process(true)
@@ -95,6 +100,27 @@ func _on_hitbox_toggled(enabled: bool) -> void:
 
 func _on_impact_toggled(enabled: bool) -> void:
 	DebugShapes.set_impacts_visible(enabled)
+
+
+func _on_log_toggled(enabled: bool) -> void:
+	damage_log_panel.visible = enabled
+	if enabled:
+		_refresh_damage_log()
+
+
+func _on_damage_logged(_entry: Dictionary) -> void:
+	if damage_log_panel.visible:
+		_refresh_damage_log()
+
+
+func _refresh_damage_log() -> void:
+	var lines: Array[String] = []
+	for entry in DamageLog.recent(8):
+		lines.append("t=%.1f  %s  -%.0f  (%s)  src=%s  hp=%.0f" % [
+			entry["time"], entry["player"], entry["amount"],
+			entry["reason"], entry["source"], entry["health_after"]])
+	damage_log_label.text = "\n".join(lines)
+
 
 func bind_player(player: Node3D) -> void:
 	_player = player

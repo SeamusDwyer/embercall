@@ -41,7 +41,7 @@ func process_attack(delta: float, tgt: Node3D) -> void:
 				phase = AttackPhase.SWING
 				phase_timer = SWING_DURATION
 				if target and is_instance_valid(target) and target.has_method("take_damage"):
-					target.take_damage(DAMAGE)
+					target.take_damage(DAMAGE, DamageLog.REASON_ENEMY_MELEE, enemy)
 				Radar.emit_ping(enemy.global_position, "attack", 8.0)
 				if target and is_instance_valid(target):
 					enemy._spawn_hit_impact.rpc(target.global_position)

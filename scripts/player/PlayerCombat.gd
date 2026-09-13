@@ -81,7 +81,7 @@ func resolve_hits() -> void:
 		if body == player:
 			continue
 		if body.has_method("take_damage"):
-			body.take_damage(DAMAGE)
+			body.take_damage(DAMAGE, DamageLog.REASON_PLAYER_MELEE, player)
 		if body.has_method("apply_knockback"):
 			var kb_dir: Vector3 = body.global_position - player.global_position
 			kb_dir.y = 0.0
@@ -92,7 +92,7 @@ func resolve_hits() -> void:
 			body.apply_knockback(kb_dir, KNOCKBACK)
 		var ignite_status = body.get_node_or_null("IgniteStatus")
 		if ignite_status and ignite_status is IgniteStatus:
-			ignite_status.apply_stacks(IGNITE_STACKS)
+			ignite_status.apply_stacks(IGNITE_STACKS, player)
 		player._spawn_hit_impact.rpc(body.global_position)
 
 

@@ -37,4 +37,4 @@ func _on_hazard_body_entered(body: Node3D) -> void:
 		return
 	var other_ignite = body.get_node_or_null("IgniteStatus")
 	if other_ignite and other_ignite is IgniteStatus:
-		other_ignite.apply_stacks(1)
+		other_ignite.apply_stacks(1, self)

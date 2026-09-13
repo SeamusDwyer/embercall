@@ -99,7 +99,7 @@ func _physics_process(delta: float) -> void:
 	_combat.process_animation(delta, weapon_mesh)
 
 
-func take_damage(amount: float) -> void:
+func take_damage(amount: float, _reason: String = "", _source: Node = null) -> void:
 	if _health.take_damage(amount):
 		_dead = true
 		died.emit()

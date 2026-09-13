@@ -39,6 +39,33 @@ offset_top = 78.0
 offset_right = 264.0
 offset_bottom = 100.0
 
+[node name="DamageLogPanel" type="Panel" parent="Root" unique_id=310000001]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -200.0
+offset_right = 400.0
+offset_bottom = -20.0
+grow_vertical = 0
+
+[node name="DamageLogLabel" type="Label" parent="Root/DamageLogPanel" unique_id=310000002]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 12
+vertical_alignment = 2
+autowrap_mode = 2
+
 [node name="RadarDisplay" type="Control" parent="Root" unique_id=1158477865]
 layout_mode = 1
 anchors_preset = 3
@@ -145,6 +172,16 @@ layout_mode = 2
 text = "Show Hit Impacts"
 
 [node name="ImpactCheck" type="CheckButton" parent="Root/SettingsPanel/SettingsVBox/ImpactHBox" unique_id=755580824]
+layout_mode = 2
+
+[node name="LogHBox" type="HBoxContainer" parent="Root/SettingsPanel/SettingsVBox" unique_id=310000003]
+layout_mode = 2
+
+[node name="LogLabel" type="Label" parent="Root/SettingsPanel/SettingsVBox/LogHBox" unique_id=310000004]
+layout_mode = 2
+text = "Show Damage Log"
+
+[node name="LogCheck" type="CheckButton" parent="Root/SettingsPanel/SettingsVBox/LogHBox" unique_id=310000005]
 layout_mode = 2
 
 [node name="Spacer" type="Control" parent="Root/SettingsPanel/SettingsVBox" unique_id=152555204]

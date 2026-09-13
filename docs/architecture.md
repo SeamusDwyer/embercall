@@ -10,7 +10,7 @@ Main.gd (root scene)
 │   ├── PlayerRoot/              spawned by Net
 │   │   └── Player (body)
 │   │       ├── IgniteStatus     burn state, ticks, spread
-│   │       ├── PlayerMovement   WASD/jump, footstep pings
+│   │       ├── PlayerMovement   WASD/jump/sprint, footstep pings
 │   │       ├── PlayerCamera     mouse look, settings toggle
 │   │       ├── PlayerCombat     swing phase machine, hit detection → Ignite stacks
 │   │       ├── PlayerHealth     damage → _sync_health, _on_death
@@ -57,6 +57,7 @@ Main.gd (root scene)
        │
        ├── RadarDisplay.gd     draws bearing/distance blips
        ├── HealthBar/Label     bound from Player._sync_health
+       ├── DamageLogPanel      recent player hits + reason (settings toggle)
        └── Settings panel      vsync, resolution, debug toggles
 ```
 
@@ -67,14 +68,30 @@ Main.gd (root scene)
 2. Player._request_attack.rpc_id(1)        (any_peer → server)
 3. Server: PlayerCombat.resolve_hits()
    ├── for each body in attack_area:
-   │   ├── body.take_damage(DAMAGE)
+   │   ├── body.take_damage(DAMAGE, "player_melee", player)
    │   ├── body.apply_knockback(dir, strength)
-   │   └── body.IgniteStatus.apply_stacks(1)
+   │   └── body.IgniteStatus.apply_stacks(1, player)
    │       └── IgniteStatus._server_process
-   │           ├── ticked signal → take_damage() each second
+   │           ├── ticked signal → take_damage(dmg, "burning", igniter)
    │           ├── Radar.emit_ping("burning")   (server only, RPC'd to all)
-   │           └── _try_spread() → overlap query → nearby IgniteStatus.apply_stacks()
+   │           └── _try_spread() → overlap query → nearby IgniteStatus.apply_stacks(1, self)
    └── Player._spawn_hit_impact.rpc(pos)
+```
+
+## Data flow: player damage logging
+
+```
+Every player hit carries a reason + source:
+  EnemyCombat  → take_damage(DAMAGE, "enemy_melee", enemy)
+  PlayerCombat → take_damage(DAMAGE, "player_melee", attacker)   (friendly fire)
+  IgniteStatus → take_damage(dmg, "burning", igniter)            (tracked by apply_stacks)
+
+1. PlayerHealth.take_damage(amount, reason, source)  (server only)
+   └── Player._sync_health.rpc(new_hp, reason, source_name, amount)
+2. Every peer: PlayerHealth.sync_hp(...) → DamageLog.record(...)
+   ├── appends {time, player, amount, reason, source, health_after}
+   ├── prints "[DAMAGE] ..." to console
+   └── emits `logged` → HUD DamageLogPanel refreshes (if enabled)
 ```
 
 ## Data flow: weapon swing animation
@@ -153,11 +170,12 @@ scripts/
 ├── RadarDisplay.gd            draws radar blips on circular minimap
 ├── NetworkManager.gd          autoload: ENet/Steam host/join, player spawn, late-join replay
 ├── DebugShapes.gd             autoload: hitbox/impact visualization overlay
+├── DamageLog.gd               autoload: player damage log (reason + source)
 ├── DampedSpring3D.gd          analytic frame-rate-independent spring (position/rotation)
 ├── SwingGhost.gd              @tool ghost pose marker (translucent, authoring only)
 ├── player/
-│   ├── PlayerMovement.gd      WASD, jump, footstep pings, remote interpolation
-│   ├── PlayerCamera.gd        mouse capture/look, settings toggle
+│   ├── PlayerMovement.gd      WASD, jump, sprint (louder steps), remote interpolation
+│   ├── PlayerCamera.gd        mouse capture/look, sprint FOV kick, settings toggle
 │   ├── PlayerCombat.gd        swing phase machine (anticipation/strike/hold), hit detect
 │   └── PlayerHealth.gd        damage sync, death
 ├── enemy/

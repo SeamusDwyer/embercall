@@ -23,6 +23,9 @@ const SPREAD_RADIUS := 3.0
 var _burn_timer: float = 0.0
 var _tick_timer: float = 0.0
 
+## Who/what last applied stacks — used to attribute burn damage in DamageLog.
+var igniter: Node3D = null
+
 signal ignited
 signal extinguished
 signal ticked(damage: float)
@@ -48,7 +51,7 @@ func _server_process(delta: float) -> void:
 		ticked.emit(dmg)
 		var owner_node := get_parent()
 		if owner_node.has_method("take_damage"):
-			owner_node.take_damage(dmg)
+			owner_node.take_damage(dmg, DamageLog.REASON_BURNING, igniter)
 		Radar.emit_ping(owner_node.global_position, "burning", 8.0)
 		_try_spread()
 
@@ -57,9 +60,11 @@ func _server_process(delta: float) -> void:
 
 ## Call from any authority-checked source (melee hit, fire prop, another
 ## burning entity in range) to apply or refresh Ignite stacks.
-func apply_stacks(amount: int) -> void:
+func apply_stacks(amount: int, source: Node3D = null) -> void:
 	if not multiplayer.is_server():
 		return
+	if source and is_instance_valid(source):
+		igniter = source
 	var was_burning := is_burning
 	stacks = clamp(stacks + amount, 0, MAX_STACKS)
 	_burn_timer = max(_burn_timer, 0.0) + STACK_DURATION
@@ -92,4 +97,4 @@ func _try_spread() -> void:
 			continue
 		var other_ignite = collider.get_node_or_null("IgniteStatus")
 		if other_ignite and other_ignite is IgniteStatus and not other_ignite.is_burning:
-			other_ignite.apply_stacks(1)
+			other_ignite.apply_stacks(1, owner_node)
