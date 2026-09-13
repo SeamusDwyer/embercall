@@ -2,10 +2,18 @@ extends CharacterBody3D
 
 @export var max_health: float = 100.0
 var health: float = 100.0
+var stamina: float = 100.0
 
 @export_category("Movement")
 @export var sprint_multiplier: float = 1.6
 @export var sprint_fov_boost: float = 6.0
+
+@export_category("Stamina")
+@export var max_stamina: float = 100.0
+@export var sprint_drain_per_second: float = 20.0
+@export var sprint_restart_threshold: float = 20.0
+@export var attack_stamina_cost: float = 25.0
+@export var stamina_regen_per_second: float = 25.0
 
 @export_category("Weapon")
 @export var weapon_pivot_path: NodePath = ^"CameraPivot/WeaponPivot"
@@ -39,12 +47,14 @@ var _movement: PlayerMovement
 var _camera: PlayerCamera
 var _combat: PlayerCombat
 var _health: PlayerHealth
+var _stamina: PlayerStamina
 var _swings: Array[Node3D] = []
 var _sprinting: bool = false
 
 
 func _ready() -> void:
 	health = max_health
+	stamina = max_stamina
 
 	_movement = PlayerMovement.new()
 	add_child(_movement)
@@ -65,6 +75,10 @@ func _ready() -> void:
 	_health = PlayerHealth.new()
 	add_child(_health)
 	_health.setup(self)
+
+	_stamina = PlayerStamina.new()
+	add_child(_stamina)
+	_stamina.setup(self)
 
 	if is_multiplayer_authority():
 		camera.current = true
@@ -111,12 +125,16 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	var is_auth := is_multiplayer_authority()
 
-	_sprinting = is_auth and (scripted_sprint if autopilot else Input.is_action_pressed("sprint"))
+	var want_sprint := is_auth and (scripted_sprint if autopilot else Input.is_action_pressed("sprint"))
+	_sprinting = want_sprint and _stamina.can_sprint()
 	_movement.apply_physics(delta, is_auth, autopilot, scripted_move_dir, _sprinting)
 	_combat.process(delta)
 
 	if not is_auth:
 		return
+
+	var moving := Vector2(velocity.x, velocity.z).length() > 0.1
+	_stamina.update(delta, _sprinting, moving)
 
 	if autopilot:
 		if scripted_attack_requested:
@@ -125,7 +143,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		_combat.attack_requested = Input.is_action_just_pressed("attack")
 
-	if _combat.attack_requested and _combat.cooldown_left <= 0.0:
+	if _combat.attack_requested and _combat.cooldown_left <= 0.0 and _stamina.spend(attack_stamina_cost):
 		_combat.trigger_attack()
 
 

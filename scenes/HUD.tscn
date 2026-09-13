@@ -3,6 +3,9 @@
 [ext_resource type="Script" uid="uid://ctlopak6u8ubk" path="res://scripts/HUD.gd" id="1"]
 [ext_resource type="Script" uid="uid://dsctritsudl7x" path="res://scripts/RadarDisplay.gd" id="2"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_stamina_fill"]
+bg_color = Color(0.9, 0.8, 0.15, 1)
+
 [node name="HUD" type="CanvasLayer" unique_id=2091497419]
 script = ExtResource("1")
 
@@ -38,6 +41,24 @@ offset_left = 24.0
 offset_top = 78.0
 offset_right = 264.0
 offset_bottom = 100.0
+
+[node name="StaminaBar" type="ProgressBar" parent="Root" unique_id=210000001]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 104.0
+offset_right = 264.0
+offset_bottom = 128.0
+value = 100.0
+show_percentage = false
+theme_override_styles/fill = SubResource("StyleBoxFlat_stamina_fill")
+
+[node name="StaminaLabel" type="Label" parent="Root" unique_id=210000002]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 130.0
+offset_right = 264.0
+offset_bottom = 154.0
+text = "STA 100 / 100"
 
 [node name="DamageLogPanel" type="Panel" parent="Root" unique_id=310000001]
 visible = false

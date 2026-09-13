@@ -14,6 +14,7 @@ Main.gd (root scene)
 │   │       ├── PlayerCamera     mouse look, settings toggle
 │   │       ├── PlayerCombat     swing phase machine, hit detection → Ignite stacks
 │   │       ├── PlayerHealth     damage → _sync_health, _on_death
+│   │       └── PlayerStamina    sprint drain, attack cost, regen (authority peer)
 │   │       └── CameraPivot
 │   │           ├── WeaponPivot  spring-driven weapon transform
 │   │           │   └── hammer   real weapon mesh
@@ -57,6 +58,7 @@ Main.gd (root scene)
        │
        ├── RadarDisplay.gd     draws bearing/distance blips
        ├── HealthBar/Label     bound from Player._sync_health
+       ├── StaminaBar/Label    bound from Player.stamina (polled per frame)
        ├── DamageLogPanel      recent player hits + reason (settings toggle)
        └── Settings panel      vsync, resolution, debug toggles
 ```
@@ -177,7 +179,8 @@ scripts/
 │   ├── PlayerMovement.gd      WASD, jump, sprint (louder steps), remote interpolation
 │   ├── PlayerCamera.gd        mouse capture/look, sprint FOV kick, settings toggle
 │   ├── PlayerCombat.gd        swing phase machine (anticipation/strike/hold), hit detect
-│   └── PlayerHealth.gd        damage sync, death
+│   ├── PlayerHealth.gd        damage sync, death
+│   └── PlayerStamina.gd       sprint drain, attack stamina cost, regen, exhaustion flag
 ├── enemy/
 │   ├── EnemyMovement.gd       chase nearest player, growl pings, knockback
 │   ├── EnemyCombat.gd         TELL→SWING→RECOVERY state machine

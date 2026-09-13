@@ -9,6 +9,8 @@ const RADAR_RADIUS := 90.0
 
 @onready var health_bar: ProgressBar = $Root/HealthBar
 @onready var health_label: Label = $Root/HealthLabel
+@onready var stamina_bar: ProgressBar = $Root/StaminaBar
+@onready var stamina_label: Label = $Root/StaminaLabel
 @onready var radar_display: Control = $Root/RadarDisplay
 @onready var death_label: Label = $Root/DeathLabel
 @onready var ignite_label: Label = $Root/IgniteLabel
@@ -125,12 +127,19 @@ func _refresh_damage_log() -> void:
 func bind_player(player: Node3D) -> void:
 	_player = player
 	update_health(player.health, player.max_health)
+	update_stamina(player.stamina, player.max_stamina)
 
 
 func update_health(current: float, max_h: float) -> void:
 	health_bar.max_value = max_h
 	health_bar.value = current
 	health_label.text = "HP %d / %d" % [int(current), int(max_h)]
+
+
+func update_stamina(current: float, max_s: float) -> void:
+	stamina_bar.max_value = max_s
+	stamina_bar.value = current
+	stamina_label.text = "STA %d / %d" % [int(current), int(max_s)]
 
 
 func show_death() -> void:
@@ -164,6 +173,8 @@ func _process(delta: float) -> void:
 		changed = true
 	if changed:
 		radar_display.queue_redraw()
+	if is_instance_valid(_player) and _player.get("stamina") != null:
+		update_stamina(_player.stamina, _player.max_stamina)
 	if is_instance_valid(_player) and _player.get("stacks") != null:
 		pass # placeholder if you later expose player ignite stacks in the HUD
 
