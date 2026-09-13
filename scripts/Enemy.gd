@@ -9,9 +9,19 @@ class_name Enemy
 @export var encounter_name: String = "Enemy"
 @export var base_color: Color = Color(0.55, 0.1, 0.15)
 
+@export_category("Weapon")
+@export var attack_phase: int = 0
+@export var swing_amplitude: float = 1.0
+@export var swing_frequency: float = 5.0
+@export var swing_bounce: float = 0.5
+@export var show_ghosts: bool = false:
+	set(value):
+		show_ghosts = value
+		_update_ghost_visibility()
+
 @onready var ignite: IgniteStatus = $IgniteStatus
 @onready var mesh: MeshInstance3D = $MeshInstance3D
-@onready var weapon_mesh: MeshInstance3D = $WeaponMesh
+@onready var weapon_pivot: Node3D = $WeaponPivot
 @onready var health_bar: HealthBar3D = $HealthBar
 
 var _movement: EnemyMovement
@@ -42,6 +52,7 @@ func _ready() -> void:
 	set_process(true)
 	_apply_base_color()
 	_refresh_health_bar()
+	_update_ghost_visibility()
 
 
 func configure_enemy(data: Dictionary) -> void:
@@ -90,13 +101,17 @@ func _process(_delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if not multiplayer.is_server() or _dead:
-		return
+	if multiplayer.is_server() and not _dead:
+		var target := _movement.apply_physics(delta)
+		if target:
+			_combat.process_attack(delta, target)
+	_combat.process_animation(delta)
 
-	var target := _movement.apply_physics(delta)
-	if target:
-		_combat.process_attack(delta, target)
-	_combat.process_animation(delta, weapon_mesh)
+
+func _update_ghost_visibility() -> void:
+	var swings := get_node_or_null("Swings") as Node3D
+	if swings and is_instance_valid(swings):
+		swings.visible = show_ghosts
 
 
 func take_damage(amount: float, _reason: String = "", _source: Node = null) -> void:

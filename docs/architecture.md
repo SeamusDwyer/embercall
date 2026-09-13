@@ -25,7 +25,7 @@ Main.gd (root scene)
 │   │   └── Enemy (body)
 │   │       ├── IgniteStatus     same component, separate instance
 │   │       ├── EnemyMovement    chase nearest player, growl pings
-│   │       ├── EnemyCombat      TELL→SWING→RECOVERY attack state machine
+│   │       ├── EnemyCombat      TELL→SWING→RECOVERY machine + spring-driven weapon swing
 │   │       ├── EnemyHealth      damage → _sync_health, _die
 │   │       └── HealthBar3D      world-space billboarded health bar
 │   │
@@ -100,12 +100,13 @@ Every player hit carries a reason + source:
 
 ```
 Authoring (editor only):
-  CameraPivot/Swings/SwingN/{Anticipation, Final}   ghost hammers
+  Player:   CameraPivot/Swings/SwingN/{Anticipation, Final}   ghost hammers
+  Enemy:    WeaponPivot Swings/Swing1/{Anticipation, Final}    ghost weapon boxes
     ├── transforms are the swing keyframes
-    └── SwingGhost.gd renders them translucent + shadowless; Player hides
-        them at runtime unless the `show_ghosts` export is enabled
+    └── SwingGhost.gd renders them translucent + shadowless; scenes hide them at
+        runtime unless show_ghosts is enabled
 
-Runtime (cosmetic, runs on every peer, per render frame):
+Runtime (cosmetic, runs on every peer, per physics frame):
 1. Player._physics_process → PlayerCombat.trigger_attack()
    └── snapshots Anticipation + Final ghost transforms into WeaponPivot space
        (scaled by swing_amplitude), advances to the next SwingN
@@ -116,6 +117,14 @@ Runtime (cosmetic, runs on every peer, per render frame):
    └── DampedSpring3D.step() for position + rotation (frequency / bounce)
        └── weapon_pivot.position / rotation = spring value
            → frame-rate independent, stable on large deltas
+
+Enemy (same system, replicated phase):
+1. Host: EnemyCombat.process_attack() advances TELL → SWING → RECOVERY and
+   copies the phase to Enemy.attack_phase (replicated via MultiplayerSynchronizer)
+2. Every peer: Enemy._physics_process → EnemyCombat.process_animation(delta)
+   ├── target = anticipation pose (TELL), final pose (SWING), else rest
+   └── DampedSpring3D.step() drives WeaponPivot.position / rotation
+       → host AND clients see the identical wind-up + strike
 ```
 
 ## Data flow: audio-radar ping
@@ -183,7 +192,7 @@ scripts/
 │   └── PlayerStamina.gd       sprint drain, attack stamina cost, regen, exhaustion flag
 ├── enemy/
 │   ├── EnemyMovement.gd       chase nearest player, growl pings, knockback
-│   ├── EnemyCombat.gd         TELL→SWING→RECOVERY state machine
+│   ├── EnemyCombat.gd         TELL→SWING→RECOVERY machine + DampedSpring3D swing (same as player)
 │   └── EnemyHealth.gd         damage sync, death visuals
 ├── vfx/
 │   ├── HitImpact.gd           shared hit marker sphere (tweened fade-out)
